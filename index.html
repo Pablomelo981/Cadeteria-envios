@@ -115,8 +115,12 @@ function extras(){
        +(document.getElementById('return').checked?50:0)
        +(document.getElementById('heavy').checked?50:0);
 }
-function showResult(km){
-  const [name,price]=getBasePrice(km); basePrice=price;
+function function showResult(km){
+  const [name,price]=getBasePrice(km); 
+  basePrice=price;
+
+  document.getElementById("zona").value = name;
+  document.getElementById("precio").value = price;
   const total=price+extras();
   document.getElementById('zone').textContent=name;
   document.getElementById('price').textContent="$"+total;
@@ -161,8 +165,15 @@ init();
   <input id="direccion" type="text" placeholder="Dirección"
     style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;">
 
-  <input id="zona" type="text" placeholder="Zona"
-    style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;">
+  <input <input id="zona" type="text" placeholder="Zona" readonly
+  style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;background:#eee;">
+  <option value="">Seleccioná una zona</option>
+  <option value="Centro">Centro</option>
+  <option value="Zona 2">Zona 2</option>
+  <option value="Zona 3">Zona 3</option>
+  <option value="Zona 4">Zona 4</option>
+  <option value="Zona 5">Zona 5</option>
+</select>
 
   <input id="precio" type="number" placeholder="Precio del envío"
     style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;">
