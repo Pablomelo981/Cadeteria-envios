@@ -148,6 +148,116 @@ document.getElementById('recalc').onclick=()=>{
   if(destination) showResult(haversine(origin,destination));
 };
 init();
+</script><!-- MIS ENVÍOS -->
+<div id="mis-envios" style="margin:20px 0;padding:20px;border-radius:15px;background:#f5f5f5;">
+  <h2>📦 Mis envíos</h2>
+
+  <input id="cliente" type="text" placeholder="Nombre del cliente"
+    style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;">
+
+  <input id="telefono" type="tel" placeholder="Teléfono"
+    style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;">
+
+  <input id="direccion" type="text" placeholder="Dirección"
+    style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;">
+
+  <input id="zona" type="text" placeholder="Zona"
+    style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;">
+
+  <input id="precio" type="number" placeholder="Precio del envío"
+    style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;">
+
+  <textarea id="observaciones" placeholder="Observaciones"
+    style="width:100%;padding:12px;margin:5px 0;box-sizing:border-box;"></textarea>
+
+  <button onclick="guardarEnvio()"
+    style="width:100%;padding:14px;margin-top:8px;border:0;border-radius:10px;">
+    💾 Guardar envío
+  </button>
+
+  <div id="lista-envios" style="margin-top:20px;"></div>
+</div>
+
+<script>
+let envios = JSON.parse(localStorage.getItem("misEnvios")) || [];
+
+function guardarEnvio() {
+  const envio = {
+    id: Date.now(),
+    cliente: document.getElementById("cliente").value,
+    telefono: document.getElementById("telefono").value,
+    direccion: document.getElementById("direccion").value,
+    zona: document.getElementById("zona").value,
+    precio: document.getElementById("precio").value,
+    observaciones: document.getElementById("observaciones").value,
+    entregado: false
+  };
+
+  if (!envio.direccion) {
+    alert("Ingresá una dirección.");
+    return;
+  }
+
+  envios.push(envio);
+  localStorage.setItem("misEnvios", JSON.stringify(envios));
+
+  document.getElementById("cliente").value = "";
+  document.getElementById("telefono").value = "";
+  document.getElementById("direccion").value = "";
+  document.getElementById("zona").value = "";
+  document.getElementById("precio").value = "";
+  document.getElementById("observaciones").value = "";
+
+  mostrarEnvios();
+}
+
+function mostrarEnvios() {
+  const lista = document.getElementById("lista-envios");
+
+  if (envios.length === 0) {
+    lista.innerHTML = "<p>No tenés envíos guardados.</p>";
+    return;
+  }
+
+  lista.innerHTML = envios.map(envio => `
+    <div style="background:white;padding:15px;margin:10px 0;border-radius:12px;">
+      <strong>${envio.cliente || "Sin nombre"}</strong><br>
+      📍 ${envio.direccion}<br>
+      🗺️ Zona: ${envio.zona || "Sin zona"}<br>
+      💰 $${envio.precio || "0"}<br>
+      📞 ${envio.telefono || "Sin teléfono"}<br>
+      ${envio.observaciones ? "📝 " + envio.observaciones + "<br>" : ""}
+      <br>
+      <button onclick="marcarEntregado(${envio.id})">
+        ${envio.entregado ? "✅ Entregado" : "☐ Marcar entregado"}
+      </button>
+
+      <button onclick="eliminarEnvio(${envio.id})">
+        🗑️ Eliminar
+      </button>
+    </div>
+  `).join("");
+}
+
+function marcarEntregado(id) {
+  const envio = envios.find(e => e.id === id);
+
+  if (envio) {
+    envio.entregado = !envio.entregado;
+    localStorage.setItem("misEnvios", JSON.stringify(envios));
+    mostrarEnvios();
+  }
+}
+
+function eliminarEnvio(id) {
+  if (confirm("¿Querés eliminar este envío?")) {
+    envios = envios.filter(e => e.id !== id);
+    localStorage.setItem("misEnvios", JSON.stringify(envios));
+    mostrarEnvios();
+  }
+}
+
+mostrarEnvios();
 </script>
 </body>
 </html>
