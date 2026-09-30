@@ -1,0 +1,14 @@
+PWA - Calculador de Envíos
+
+Archivos:
+- index.html
+- manifest.webmanifest
+- service-worker.js
+- icon.svg
+
+Para instalarla como app:
+1. Subí estos archivos a un hosting que use HTTPS.
+2. Abrí la dirección desde Chrome en Android.
+3. Elegí "Instalar aplicación" o "Agregar a pantalla de inicio".
+
+Importante: la búsqueda de direcciones y el mapa requieren Internet.
