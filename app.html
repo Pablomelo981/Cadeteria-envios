@@ -3,101 +3,146 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#067647">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Cadetería - Pedidos</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
+*{box-sizing:border-box}
+
 body{
-font-family:Arial;
-margin:0;
-background:#f2f2f2;
-color:#222
+ margin:0;
+ background:#f2f4f7;
+ color:#101828;
+ font-family:Arial,sans-serif
 }
+
 header{
-background:#111;
-color:white;
-padding:15px;
-text-align:center
+ background:#067647;
+ color:white;
+ padding:18px;
+ text-align:center;
+ font-size:21px;
+ font-weight:bold
 }
+
 main{
-max-width:600px;
-margin:auto;
-padding:12px
+ max-width:700px;
+ margin:auto;
+ padding:14px
 }
-input,button,select{
-width:100%;
-box-sizing:border-box;
-padding:12px;
-margin:5px 0;
-border-radius:8px;
-border:1px solid #ccc;
-font-size:16px
-}
-button{
-background:#111;
-color:white;
-border:0
-}
+
 .card{
-background:white;
-border-radius:12px;
-padding:12px;
-margin:12px 0;
-box-shadow:0 2px 8px #bbb
+ background:white;
+ border-radius:16px;
+ padding:16px;
+ margin:12px 0;
+ box-shadow:0 3px 12px #0002
 }
-.nuevo{
-border:3px solid #18a558
+
+input,select,button{
+ width:100%;
+ padding:13px;
+ margin:6px 0;
+ border-radius:10px;
+ border:1px solid #ccc;
+ font-size:16px
 }
-.urgente{
-color:#c00;
-font-weight:bold
+
+button{
+ background:#067647;
+ color:white;
+ border:0;
+ font-weight:bold
 }
+
+.red{background:#b42318}
+.blue{background:#175cd3}
+.gray{background:#475467}
+
+.new{
+ border:3px solid #12b76a
+}
+
+.urgent{
+ color:#b42318;
+ font-weight:bold
+}
+
 #map{
-height:220px;
-margin-top:8px;
-border-radius:10px
+ width:100%;
+ height:220px;
+ margin-top:10px;
+ border-radius:12px
 }
+
+.hidden{
+ display:none
+}
+
 #error{
-color:#c00
+ color:#b42318;
+ font-weight:bold
 }
-.oculto{
-display:none
-}
-.mini{
-height:220px;
-margin-top:8px;
-border-radius:10px
+
+.small{
+ color:#667085;
+ font-size:14px
 }
 </style>
 </head>
 
 <body>
 
-<header>
-<b>🚴 CADETERÍA - PEDIDOS</b>
-</header>
+<header>🚴 CADETERÍA - PEDIDOS</header>
 
 <main>
 
-<div id="login">
-<h2>Ingresar</h2>
+<div id="loginBox" class="card">
 
-<input id="email" type="email" placeholder="Correo">
+<h2>Iniciar sesión</h2>
 
-<input id="pass" type="password" placeholder="Contraseña">
+<input
+ id="email"
+ type="email"
+ placeholder="Correo electrónico"
+ autocomplete="email">
 
-<button onclick="login()">Ingresar</button>
+<input
+ id="password"
+ type="password"
+ placeholder="Contraseña"
+ autocomplete="current-password">
+
+<button id="loginBtn" onclick="login()">
+Ingresar
+</button>
 
 <p id="error"></p>
+
 </div>
 
 
-<div id="panel" class="oculto">
+<div id="app" class="hidden">
 
-<button onclick="logout()">Cerrar sesión</button>
+<div class="card">
 
-<div id="pedidos"></div>
+<button class="gray" onclick="logout()">
+Cerrar sesión
+</button>
+
+<p class="small">
+Los pedidos se actualizan automáticamente.
+</p>
+
+</div>
+
+<div id="orders"></div>
 
 </div>
 
@@ -108,85 +153,428 @@ border-radius:10px
 
 <script>
 
-const URL="https://umqbrzgbsfzeggnyhfcu.supabase.co";
+const SUPABASE_URL =
+"https://umqbrzgbsfzeggnyhfcu.supabase.co";
 
-const KEY="sb_publishable_WIcZQ2owPoPYs5edb51j-g_mLvI0VTX";
+const SUPABASE_KEY =
+"sb_publishable_WIcZQ2owPoPYs5edb51j-g_mLvI0VTX";
 
-const ADMIN="1542195c-af82-42e6-b011-bb7a9923a88f";
+const ADMIN_ID =
+"1542195c-af82-42e6-b011-bb7a9923a88f";
 
-let token="";
+let accessToken="";
+let refreshTimer=null;
 
-let timer;
+
+function headers(){
+
+ return {
+  "apikey":SUPABASE_KEY,
+  "Authorization":"Bearer "+accessToken,
+  "Content-Type":"application/json"
+ };
+
+}
 
 
 async function login(){
 
-const e=document.getElementById("email").value.trim();
+ const email=document.getElementById("email").value.trim();
+ const password=document.getElementById("password").value;
+ const error=document.getElementById("error");
+ const btn=document.getElementById("loginBtn");
 
-const p=document.getElementById("pass").value;
+ if(!email || !password){
 
-const error=document.getElementById("error");
+  error.textContent="Ingresá el correo y la contraseña.";
 
-error.textContent="Ingresando...";
+  return;
+ }
 
-try{
+ btn.disabled=true;
+ btn.textContent="Ingresando...";
+ error.textContent="";
 
-const r=await fetch(
-URL+"/auth/v1/token?grant_type=password",
-{
-method:"POST",
-headers:{
-"apikey":KEY,
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-email:e,
-password:p
-})
+ try{
+
+  const response=await fetch(
+   SUPABASE_URL+
+   "/auth/v1/token?grant_type=password",
+   {
+    method:"POST",
+    headers:{
+     "apikey":SUPABASE_KEY,
+     "Content-Type":"application/json"
+    },
+    body:JSON.stringify({
+     email:email,
+     password:password
+    })
+   }
+  );
+
+  const data=await response.json();
+
+  if(!response.ok){
+
+   error.textContent=
+    data.error_description ||
+    data.msg ||
+    "Correo o contraseña incorrectos.";
+
+   btn.disabled=false;
+   btn.textContent="Ingresar";
+
+   return;
+  }
+
+  if(!data.user || data.user.id!==ADMIN_ID){
+
+   error.textContent=
+    "Este usuario no tiene permiso de administrador.";
+
+   btn.disabled=false;
+   btn.textContent="Ingresar";
+
+   return;
+  }
+
+  accessToken=data.access_token;
+
+  document.getElementById("loginBox")
+   .classList.add("hidden");
+
+  document.getElementById("app")
+   .classList.remove("hidden");
+
+  await loadOrders();
+
+  if(refreshTimer)
+   clearInterval(refreshTimer);
+
+  refreshTimer=setInterval(loadOrders,15000);
+
+ }catch(e){
+
+  error.textContent=
+   "No se pudo conectar con el servidor.";
+
+  btn.disabled=false;
+  btn.textContent="Ingresar";
+
+ }
+
 }
-);
 
-const d=await r.json();
 
-if(!r.ok){
+async function loadOrders(){
 
-error.textContent=
-d.error_description||
-d.msg||
-"Correo o contraseña incorrectos";
+ try{
 
-return;
+  const response=await fetch(
+   SUPABASE_URL+
+   "/rest/v1/pedidos?select=*&order=created_at.desc",
+   {
+    headers:{
+     "apikey":SUPABASE_KEY,
+     "Authorization":"Bearer "+accessToken
+    }
+   }
+  );
+
+  if(!response.ok){
+
+   document.getElementById("orders").innerHTML=
+    "<div class='card'>No se pudieron cargar los pedidos.</div>";
+
+   return;
+  }
+
+  let orders=await response.json();
+
+  const priority={
+   "pendiente":0,
+   "aceptado":1,
+   "en camino":2,
+   "entregado":3,
+   "cancelado":4
+  };
+
+  orders.sort(function(a,b){
+
+   const pa=priority[a.estado] ?? 99;
+   const pb=priority[b.estado] ?? 99;
+
+   if(pa!==pb)
+    return pa-pb;
+
+   return new Date(b.created_at)-
+          new Date(a.created_at);
+
+  });
+
+  const container=document.getElementById("orders");
+
+  container.innerHTML="";
+
+  if(orders.length===0){
+
+   container.innerHTML=
+    "<div class='card'><h3>No hay pedidos.</h3></div>";
+
+   return;
+  }
+
+  orders.forEach(function(order){
+
+   const card=document.createElement("div");
+
+   card.className=
+    "card "+
+    (order.estado==="pendiente"?"new":"");
+
+   const newLabel=
+    order.estado==="pendiente"
+    ?"<div><b>🆕 NUEVO PEDIDO</b></div>"
+    :"";
+
+   const urgentLabel=
+    order.urgente
+    ?"<span class='urgent'>🚨 URGENTE</span>"
+    :"";
+
+   card.innerHTML=`
+
+${newLabel}
+
+<h2>
+${safe(order.cliente)}
+${urgentLabel}
+</h2>
+
+<div>📞 <b>${safe(order.telefono)}</b></div>
+
+<div>📍 ${safe(order.direccion)}</div>
+
+<div>💰 <b>$${safe(order.precio_total)}</b></div>
+
+${order.observaciones
+ ?`<div>📝 ${safe(order.observaciones)}</div>`
+ :""
 }
 
-if(!d.user || d.user.id!==ADMIN){
+<select onchange="changeStatus(${order.id},this.value)">
 
-error.textContent="Este usuario no es administrador";
+<option value="pendiente"
+${order.estado==="pendiente"?"selected":""}>
+Pendiente
+</option>
 
-return;
+<option value="aceptado"
+${order.estado==="aceptado"?"selected":""}>
+Aceptado
+</option>
+
+<option value="en camino"
+${order.estado==="en camino"?"selected":""}>
+En camino
+</option>
+
+<option value="entregado"
+${order.estado==="entregado"?"selected":""}>
+Entregado
+</option>
+
+<option value="cancelado"
+${order.estado==="cancelado"?"selected":""}>
+Cancelado
+</option>
+
+</select>
+
+<button class="blue"
+onclick="openMaps(${order.latitud},${order.longitud})">
+📍 Abrir Google Maps
+</button>
+
+<button
+onclick="callCustomer('${safeAttr(order.telefono)}')">
+📞 Llamar al cliente
+</button>
+
+<button class="red"
+onclick="deleteOrder(${order.id})">
+🗑️ Eliminar pedido
+</button>
+
+<div id="map-${order.id}" style="height:220px;margin-top:10px;border-radius:12px"></div>
+
+`;
+
+   container.appendChild(card);
+
+   if(order.latitud && order.longitud){
+
+    const map=L.map(
+     "map-"+order.id
+    ).setView(
+     [order.latitud,order.longitud],
+     15
+    );
+
+    L.tileLayer(
+     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+     {
+      maxZoom:19,
+      attribution:"© OpenStreetMap"
+     }
+    ).addTo(map);
+
+    L.marker([
+     order.latitud,
+     order.longitud
+    ]).addTo(map);
+
+   }
+
+  });
+
+ }catch(e){
+
+  console.log(e);
+
+ }
+
 }
 
-token=d.access_token;
 
-document.getElementById("login").className="oculto";
+async function changeStatus(id,status){
 
-document.getElementById("panel").className="";
+ const response=await fetch(
+  SUPABASE_URL+
+  "/rest/v1/pedidos?id=eq."+id,
+  {
+   method:"PATCH",
+   headers:headers(),
+   body:JSON.stringify({
+    estado:status
+   })
+  }
+ );
 
-error.textContent="";
+ if(!response.ok){
 
-cargar();
+  alert("No se pudo cambiar el estado.");
 
-timer=setInterval(cargar,15000);
+  return;
+ }
 
-}catch(e){
-
-error.textContent="Error de conexión";
+ await loadOrders();
 
 }
 
+
+async function deleteOrder(id){
+
+ const confirmDelete=
+  confirm("¿Seguro que querés eliminar este pedido?");
+
+ if(!confirmDelete)
+  return;
+
+ const response=await fetch(
+  SUPABASE_URL+
+  "/rest/v1/pedidos?id=eq."+id,
+  {
+   method:"DELETE",
+   headers:headers()
+  }
+ );
+
+ if(!response.ok){
+
+  alert("No se pudo eliminar el pedido.");
+
+  return;
+ }
+
+ await loadOrders();
+
 }
 
 
-async function cargar(){
+function openMaps(lat,lng){
 
-const r=await fetch(
-URL+"/rest/v1/pedidos?select=*&order=created_at
+ if(!lat || !lng){
+
+  alert("Este pedido no tiene ubicación.");
+
+  return;
+ }
+
+ window.open(
+  "https://www.google.com/maps/dir/?api=1&destination="+
+  lat+","+lng,
+  "_blank"
+ );
+
+}
+
+
+function callCustomer(phone){
+
+ window.location.href="tel:"+phone;
+
+}
+
+
+function logout(){
+
+ accessToken="";
+
+ if(refreshTimer)
+  clearInterval(refreshTimer);
+
+ document.getElementById("app")
+  .classList.add("hidden");
+
+ document.getElementById("loginBox")
+  .classList.remove("hidden");
+
+ document.getElementById("password").value="";
+
+}
+
+
+function safe(value){
+
+ return String(value ?? "")
+  .replace(/&/g,"&amp;")
+  .replace(/</g,"&lt;")
+  .replace(/>/g,"&gt;")
+  .replace(/"/g,"&quot;")
+  .replace(/'/g,"&#039;");
+
+}
+
+
+function safeAttr(value){
+
+ return String(value ?? "")
+  .replace(/'/g,"");
+
+}
+
+
+if("serviceWorker" in navigator){
+
+ navigator.serviceWorker.register(
+  "./sw.js?v=4"
+ );
+
+}
+
+</script>
+
+</body>
+</html>
