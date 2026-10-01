@@ -103,956 +103,11 @@ button:disabled{
 }
 
 #map{
-  height:330px;
-  border-radius:14px;
-  margin-top:12px
-}
-
-.legend div{
-  display:flex;
-  justify-content:space-between;
-  padding:7px 0;
-  border-bottom:1px solid #eee
-}
-
-.ok{
-  background:#ecfdf3;
-  border:1px solid #abefc6;
-  padding:12px;
-  border-radius:12px;
-  margin-top:12px
-}
-
-.warn{
-  background:#fffaeb;
-  border:1px solid #fedf89;
-  padding:12px;
-  border-radius:12px;
-  margin-top:12px
-}
-
-a{
-  color:inherit
-}
-</style>
-</head>
-
-<body>
-
-<div class="wrap">
-
-  <div class="brand">
-    <h1>🚚 Calculá tu envío</h1>
-    <p>Ingresá tu dirección y te decimos la zona y el precio.</p>
-  </div>
-
-  <div class="card">
-    <label for="address">Dirección de entrega</label>
-
-    <input
-      id="address"
-      placeholder="Ej.: Av. 8 de Octubre 2500, Montevideo"
-      autocomplete="street-address"
-    >
-
-    <button id="calc">Consultar precio</button>
-
-    <div id="status" class="small" style="margin-top:10px"></div>
-  </div>
-
-
-  <div id="result" class="card result">
-
-    <div class="zone" id="zone"></div>
-
-    <div class="price" id="price"></div>
-
-    <div id="distance"></div>
-
-    <div id="detail" class="small"></div>
-
-  </div>
-
-
-  <div class="card">
-
-    <h3 style="margin-top:0">Tarifas</h3>
-
-    <div class="legend">
-
-      <div>
-        <span>Zona 1 · hasta 2 km</span>
-        <b>$200</b>
-      </div>
-
-      <div>
-        <span>Zona 2 · 2 a 4 km</span>
-        <b>$250</b>
-      </div>
-
-      <div>
-        <span>Zona 3 · 4 a 6 km</span>
-        <b>$300</b>
-      </div>
-
-      <div>
-        <span>Zona 4 · 6 a 8 km</span>
-        <b>$350</b>
-      </div>
-
-      <div>
-        <span>Más de 8 km</span>
-        <b>$400 + $35/km</b>
-      </div>
-
-    </div>
-  </div>
-
-
-  <div class="card">
-
-    <h3 style="margin-top:0">Extras</h3>
-
-    <label>
-      <input type="checkbox" id="urgent" style="width:auto">
-      Urgente $50+
-    </label>
-
-    <button id="recalc" type="button">
-      Actualizar total
-    </button>
-
-  </div>
-
-
-  <div id="map"></div>
-
-
-  <div class="card small">
-
-    <b>Punto de partida:</b>
-    esquina de Camino Teniente Rinaldi y Av. San Martín, Montevideo.
-
-    <br>
-
-    La distancia de esta versión se calcula en línea recta para determinar la zona.
-    Se puede cambiar luego a distancia real por calle.
-
-  </div>
-
-</div>
-
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<script>
-
-const ORIGIN_QUERY =
-  "Camino Teniente Rinaldi 5365 esquina Av. San Martin, Montevideo, Uruguay";
-
-const FALLBACK = [-34.8245,-56.1650];
-
-const zones = [
-  {max:2, name:"Zona 1", price:200},
-  {max:4, name:"Zona 2", price:250},
-  {max:6, name:"Zona 3", price:300},
-  {max:8, name:"Zona 4", price:350}
-];
-
-let origin = null;
-let destination = null;
-let basePrice = 0;
-
-let circles = [];
-let originMarker = null;
-let destMarker = null;
-
-
-/* MAPA */
-
-const map = L.map('map', {
-  center: FALLBACK,
-  zoom: 13
-});
-
-
-L.tileLayer(
-  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  {
-    attribution:'© OpenStreetMap contributors'
-  }
-).addTo(map);
-
-
-/* Corregir tamaño del mapa */
-
-setTimeout(() => {
-  map.invalidateSize();
-}, 500);
-
-
-window.addEventListener('resize', () => {
-  map.invalidateSize();
-});
-
-
-/* DIBUJAR ZONAS */
-
-function drawZones(){
-
-  circles.forEach(c => map.removeLayer(c));
-
-  circles = [];
-
-  [2,4,6,8].forEach(r => {
-
-    const c = L.circle(
-      origin,
-      {
-        radius:r * 1000,
-        fillOpacity:.05,
-        weight:2
-      }
-    ).addTo(map);
-
-    circles.push(c);
-
-  });
-
-
-  if(originMarker){
-    map.removeLayer(originMarker);
-  }
-
-
-  originMarker =
-    L.marker(origin)
-      .addTo(map)
-      .bindPopup(
-        "Punto de partida<br>Teniente Rinaldi y San Martín"
-      );
-
-}
-
-
-/* DISTANCIA */
-
-function haversine(a,b){
-
-  const R = 6371;
-  const p = Math.PI / 180;
-
-  const dLat = (b[0]-a[0]) * p;
-  const dLon = (b[1]-a[1]) * p;
-
-  const x =
-    Math.sin(dLat/2)**2 +
-    Math.cos(a[0]*p) *
-    Math.cos(b[0]*p) *
-    Math.sin(dLon/2)**2;
-
-  return 2 * R * Math.asin(Math.sqrt(x));
-}
-
-
-/* BUSCAR DIRECCIÓN */
-
-async function geocode(q){
-
-  const url =
-    "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=uy&q="
-    + encodeURIComponent(q);
-
-  const r = await fetch(
-    url,
-    {
-      headers:{
-        "Accept":"application/json"
-      }
-    }
-  );
-
-  if(!r.ok){
-    throw new Error("No se pudo consultar el mapa");
-  }
-
-  const data = await r.json();
-
-  if(!data.length){
-    throw new Error(
-      "No encontré esa dirección. Probá con calle y número."
-    );
-  }
-
-  return [
-    parseFloat(data[0].lat),
-    parseFloat(data[0].lon)
-  ];
-}
-
-
-/* PRECIOS */
-
-function getBasePrice(km){
-
-  if(km <= 2)
-    return [zones[0].name,200];
-
-  if(km <= 4)
-    return [zones[1].name,250];
-
-  if(km <= 6)
-    return [zones[2].name,300];
-
-  if(km <= 8)
-    return [zones[3].name,350];
-
-  return [
-    "Fuera de zona",
-    400 + Math.ceil(km - 8) * 35
-  ];
-}
-
-
-/* EXTRAS */
-
-function extras(){
-
-  return document.getElementById('urgent').checked
-    ? 50
-    : 0;
-
-}
-
-
-/* MOSTRAR RESULTADO */
-
-function showResult(km){
-
-  const [name,price] = getBasePrice(km);
-
-  basePrice = price;
-
-
-  /* Guardar también en Mis envíos */
-
-  const zonaInput =
-    document.getElementById("zona");
-
-  const precioInput =
-    document.getElementById("precio");
-
-
-  if(zonaInput){
-    zonaInput.value = name;
-  }
-
-  if(precioInput){
-    precioInput.value = price;
-  }
-
-
-  const total =
-    price + extras();
-
-
-  document.getElementById('zone').textContent =
-    name;
-
-
-  document.getElementById('price').textContent =
-    "$" + total;
-
-
-  document.getElementById('distance').textContent =
-    "Distancia aproximada: " +
-    km.toFixed(1) +
-    " km";
-
-
-  document.getElementById('detail').textContent =
-    total !== price
-      ? `Base $${price} + extras $${total-price}`
-      : "Precio base de envío";
-
-
-  document.getElementById('result').style.display =
-    "block";
-
-}
-
-
-/* INICIAR MAPA */
-
-async function init(){
-
-  try{
-
-    origin =
-      await geocode(ORIGIN_QUERY);
-
-  }catch(e){
-
-    origin = FALLBACK;
-
-  }
-
-
-  drawZones();
-
-  map.setView(origin,13);
-
-
-  setTimeout(() => {
-    map.invalidateSize();
-  },300);
-
-}
-
-
-/* BOTÓN CALCULAR */
-
-document.getElementById('calc').onclick =
-  async () => {
-
-    const q =
-      document.getElementById('address')
-        .value
-        .trim();
-
-    const status =
-      document.getElementById('status');
-
-    const btn =
-      document.getElementById('calc');
-
-
-    if(!q){
-
-      status.textContent =
-        "Escribí una dirección.";
-
-      return;
-
-    }
-
-
-    btn.disabled = true;
-
-    status.textContent =
-      "Buscando dirección…";
-
-
-    try{
-
-      destination =
-        await geocode(q);
-
-
-      if(destMarker){
-
-        map.removeLayer(destMarker);
-
-      }
-
-
-      destMarker =
-        L.marker(destination)
-          .addTo(map)
-          .bindPopup("Entrega")
-          .openPopup();
-
-
-      const km =
-        haversine(origin,destination);
-
-
-      showResult(km);
-
-
-      map.fitBounds(
-        L.latLngBounds(
-          [origin,destination]
-        ).pad(0.25)
-      );
-
-
-      status.innerHTML =
-        '<span style="color:#067647">Dirección encontrada.</span>';
-
-
-    }catch(e){
-
-      status.textContent =
-        e.message;
-
-    }finally{
-
-      btn.disabled = false;
-
-    }
-
-  };
-
-
-/* ACTUALIZAR TOTAL */
-
-document.getElementById('recalc').onclick =
-  () => {
-
-    if(destination){
-
-      showResult(
-        haversine(origin,destination)
-      );
-
-    }
-
-  };
-
-
-init();
-
-</script>
-
-
-<!-- MIS ENVÍOS -->
-
-<div
-  id="mis-envios"
-  style="
-    margin:20px 0;
-    padding:20px;
-    border-radius:15px;
-    background:#f5f5f5;
-  "
->
-
-  <h2>📦 Mis envíos</h2>
-
-
-  <input
-    id="cliente"
-    type="text"
-    placeholder="Nombre del cliente"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  >
-
-
-  <input
-    id="telefono"
-    type="tel"
-    placeholder="Teléfono"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  >
-
-
-  <input
-    id="direccion"
-    type="text"
-    placeholder="Dirección"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  >
-
-
-  <input
-    id="zona"
-    type="text"
-    placeholder="Zona"
-    readonly
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-      background:#eee;
-    "
-  >
-
-
-  <input
-    id="precio"
-    type="number"
-    placeholder="Precio del envío"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  >
-
-
-  <textarea
-    id="observaciones"
-    placeholder="Observaciones"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  ></textarea>
-
-
-  <button
-    onclick="guardarEnvio()"
-    style="
-      width:100%;
-      padding:14px;
-      margin-top:8px;
-      border:0;
-      border-radius:10px;
-    "
-  >
-    💾 Guardar envío
-  </button>
-
-
-  <div
-    id="lista-envios"
-    style="margin-top:20px;"
-  ></div>
-
-</div>
-
-
-<script>
-
-let envios =
-  JSON.parse(
-    localStorage.getItem("misEnvios")
-  ) || [];
-
-
-function guardarEnvio(){
-
-  const envio = {
-
-    id:Date.now(),
-
-    cliente:
-      document.getElementById("cliente").value,
-
-    telefono:
-      document.getElementById("telefono").value,
-
-    direccion:
-      document.getElementById("direccion").value,
-
-    zona:
-      document.getElementById("zona").value,
-
-    precio:
-      document.getElementById("precio").value,
-
-    observaciones:
-      document.getElementById("observaciones").value,
-
-    entregado:false
-
-  };
-
-
-  if(!envio.direccion){
-
-    alert("Ingresá una dirección.");
-
-    return;
-
-  }
-
-
-  envios.push(envio);
-
-
-  localStorage.setItem(
-    "misEnvios",
-    JSON.stringify(envios)
-  );
-
-
-  document.getElementById("cliente").value = "";
-
-  document.getElementById("telefono").value = "";
-
-  document.getElementById("direccion").value = "";
-
-  document.getElementById("zona").value = "";
-
-  document.getElementById("precio").value = "";
-
-  document.getElementById("observaciones").value = "";
-
-
-  mostrarEnvios();
-
-}
-
-
-function mostrarEnvios(){
-
-  const lista =
-    document.getElementById("lista-envios");
-
-
-  if(envios.length === 0){
-
-    lista.innerHTML =
-      "<p>No tenés envíos guardados.</p>";
-
-    return;
-
-  }
-
-
-  lista.innerHTML =
-    envios.map(envio => `
-
-      <div
-        style="
-          background:white;
-          padding:15px;
-          margin:10px 0;
-          border-radius:12px;
-        "
-      >
-
-        <strong>
-          ${envio.cliente || "Sin nombre"}
-        </strong>
-
-        <br>
-
-        📍 ${envio.direccion}
-
-        <br>
-
-        🗺️ Zona:
-        ${envio.zona || "Sin zona"}
-
-        <br>
-
-        💰 $${envio.precio || "0"}
-
-        <br>
-
-        📞 ${envio.telefono || "Sin teléfono"}
-
-        <br>
-
-        ${
-          envio.observaciones
-            ? "📝 " + envio.observaciones + "<br>"
-            : ""
-        }
-
-        <br>
-
-        <button
-          onclick="marcarEntregado(${envio.id})"
-        >
-          ${
-            envio.entregado
-              ? "✅ Entregado"
-              : "☐ Marcar entregado"
-          }
-        </button>
-
-
-        <button
-          onclick="eliminarEnvio(${envio.id})"
-        >
-          🗑️ Eliminar
-        </button>
-
-      </div>
-
-    `).join("");
-
-}
-
-
-function marcarEntregado(id){
-
-  const envio =
-    envios.find(e => e.id === id);
-
-
-  if(envio){
-
-    envio.entregado =
-      !envio.entregado;
-
-
-    localStorage.setItem(
-      "misEnvios",
-      JSON.stringify(envios)
-    );
-
-
-    mostrarEnvios();
-
-  }
-
-}
-
-
-function eliminarEnvio(id){
-
-  if(
-    confirm(
-      "¿Querés eliminar este envío?"
-    )
-  ){
-
-    envios =
-      envios.filter(
-        e => e.id !== id
-      );
-
-
-    localStorage.setItem(
-      "misEnvios",
-      JSON.stringify(envios)
-    );
-
-
-    mostrarEnvios();
-
-  }
-
-}
-
-
-mostrarEnvios();
-
-</script>
-
-</body>
-</html><!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Calculador de envíos</title>
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-
-<style>
-:root{
-  --bg:#f4f6f8;
-  --card:#fff;
-  --text:#17202a;
-  --muted:#667085;
-  --accent:#111827
-}
-
-*{box-sizing:border-box}
-
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-  background:var(--bg);
-  color:var(--text)
-}
-
-.wrap{
-  max-width:720px;
-  margin:auto;
-  padding:18px
-}
-
-.brand{
-  text-align:center;
-  padding:12px 0 8px
-}
-
-.brand h1{
-  margin:0;
-  font-size:28px
-}
-
-.brand p{
-  margin:6px 0;
-  color:var(--muted)
-}
-
-.card{
-  background:var(--card);
-  border-radius:18px;
-  padding:18px;
-  margin:14px 0;
-  box-shadow:0 4px 18px #00000010
-}
-
-label{
-  display:block;
-  font-weight:700;
-  margin:10px 0 6px
-}
-
-input,select,button{
+  height:400px;
   width:100%;
-  padding:13px;
-  border:1px solid #d0d5dd;
-  border-radius:12px;
-  font-size:16px
-}
-
-button{
-  background:var(--accent);
-  color:white;
-  border:0;
-  font-weight:700;
-  cursor:pointer;
-  margin-top:12px
-}
-
-button:disabled{
-  opacity:.55
-}
-
-.result{
-  display:none;
-  text-align:center
-}
-
-.price{
-  font-size:42px;
-  font-weight:800;
-  margin:6px
-}
-
-.zone{
-  font-size:20px;
-  font-weight:750
-}
-
-.small{
-  color:var(--muted);
-  font-size:13px
-}
-
-#map{
-  height:330px;
   border-radius:14px;
-  margin-top:12px
+  margin-top:12px;
+  overflow:hidden
 }
 
 .legend div{
@@ -1060,22 +115,6 @@ button:disabled{
   justify-content:space-between;
   padding:7px 0;
   border-bottom:1px solid #eee
-}
-
-.ok{
-  background:#ecfdf3;
-  border:1px solid #abefc6;
-  padding:12px;
-  border-radius:12px;
-  margin-top:12px
-}
-
-.warn{
-  background:#fffaeb;
-  border:1px solid #fedf89;
-  padding:12px;
-  border-radius:12px;
-  margin-top:12px
 }
 
 a{
@@ -1094,6 +133,7 @@ a{
   </div>
 
   <div class="card">
+
     <label for="address">Dirección de entrega</label>
 
     <input
@@ -1102,28 +142,46 @@ a{
       autocomplete="street-address"
     >
 
-    <button id="calc">Consultar precio</button>
+    <button id="calc">
+      Consultar precio
+    </button>
 
-    <div id="status" class="small" style="margin-top:10px"></div>
+    <div
+      id="status"
+      class="small"
+      style="margin-top:10px"
+    ></div>
+
   </div>
 
 
   <div id="result" class="card result">
 
-    <div class="zone" id="zone"></div>
+    <div
+      class="zone"
+      id="zone"
+    ></div>
 
-    <div class="price" id="price"></div>
+    <div
+      class="price"
+      id="price"
+    ></div>
 
     <div id="distance"></div>
 
-    <div id="detail" class="small"></div>
+    <div
+      id="detail"
+      class="small"
+    ></div>
 
   </div>
 
 
   <div class="card">
 
-    <h3 style="margin-top:0">Tarifas</h3>
+    <h3 style="margin-top:0">
+      Tarifas
+    </h3>
 
     <div class="legend">
 
@@ -1153,19 +211,29 @@ a{
       </div>
 
     </div>
+
   </div>
 
 
   <div class="card">
 
-    <h3 style="margin-top:0">Extras</h3>
+    <h3 style="margin-top:0">
+      Extras
+    </h3>
 
     <label>
-      <input type="checkbox" id="urgent" style="width:auto">
+      <input
+        type="checkbox"
+        id="urgent"
+        style="width:auto"
+      >
       Urgente $50+
     </label>
 
-    <button id="recalc" type="button">
+    <button
+      id="recalc"
+      type="button"
+    >
       Actualizar total
     </button>
 
@@ -1180,10 +248,14 @@ a{
     <b>Punto de partida:</b>
     esquina de Camino Teniente Rinaldi y Av. San Martín, Montevideo.
 
-    <br>
+    <br><br>
 
-    La distancia de esta versión se calcula en línea recta para determinar la zona.
-    Se puede cambiar luego a distancia real por calle.
+    <b>Mapa de zonas:</b>
+    los círculos muestran los radios de 2, 4, 6 y 8 km desde el punto de partida.
+
+    <br><br>
+
+    La distancia utilizada para determinar la zona es en línea recta.
 
   </div>
 
@@ -1200,10 +272,26 @@ const ORIGIN_QUERY =
 const FALLBACK = [-34.8245,-56.1650];
 
 const zones = [
-  {max:2, name:"Zona 1", price:200},
-  {max:4, name:"Zona 2", price:250},
-  {max:6, name:"Zona 3", price:300},
-  {max:8, name:"Zona 4", price:350}
+  {
+    max:2,
+    name:"Zona 1",
+    price:200
+  },
+  {
+    max:4,
+    name:"Zona 2",
+    price:250
+  },
+  {
+    max:6,
+    name:"Zona 3",
+    price:300
+  },
+  {
+    max:8,
+    name:"Zona 4",
+    price:350
+  }
 ];
 
 let origin = null;
@@ -1215,57 +303,94 @@ let originMarker = null;
 let destMarker = null;
 
 
-/* MAPA */
+/* =========================
+   MAPA
+========================= */
 
-const map = L.map('map', {
-  center: FALLBACK,
-  zoom: 13
+const map = L.map("map", {
+  center:FALLBACK,
+  zoom:13,
+  zoomControl:true
 });
 
 
 L.tileLayer(
-  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   {
-    attribution:'© OpenStreetMap contributors'
+    maxZoom:19,
+    attribution:"© OpenStreetMap contributors"
   }
 ).addTo(map);
 
 
-/* Corregir tamaño del mapa */
-
-setTimeout(() => {
-  map.invalidateSize();
-}, 500);
-
-
-window.addEventListener('resize', () => {
-  map.invalidateSize();
-});
-
-
-/* DIBUJAR ZONAS */
+/* =========================
+   DIBUJAR ZONAS
+========================= */
 
 function drawZones(){
 
-  circles.forEach(c => map.removeLayer(c));
+  /* borrar círculos anteriores */
+
+  circles.forEach(function(circle){
+    map.removeLayer(circle);
+  });
 
   circles = [];
 
-  [2,4,6,8].forEach(r => {
 
-    const c = L.circle(
+  /*
+    Cada círculo representa el radio
+    acumulado desde el punto de partida.
+  */
+
+  const zoneData = [
+
+    {
+      radius:8000,
+      color:"#ef4444",
+      fill:"#ef4444"
+    },
+
+    {
+      radius:6000,
+      color:"#f97316",
+      fill:"#f97316"
+    },
+
+    {
+      radius:4000,
+      color:"#eab308",
+      fill:"#eab308"
+    },
+
+    {
+      radius:2000,
+      color:"#22c55e",
+      fill:"#22c55e"
+    }
+
+  ];
+
+
+  zoneData.forEach(function(zone){
+
+    const circle = L.circle(
       origin,
       {
-        radius:r * 1000,
-        fillOpacity:.05,
-        weight:2
+        radius:zone.radius,
+        color:zone.color,
+        fillColor:zone.fill,
+        fillOpacity:0.16,
+        weight:3
       }
     ).addTo(map);
 
-    circles.push(c);
+    circles.push(circle);
 
   });
 
+
+  /* marcador del origen */
 
   if(originMarker){
     map.removeLayer(originMarker);
@@ -1276,54 +401,72 @@ function drawZones(){
     L.marker(origin)
       .addTo(map)
       .bindPopup(
-        "Punto de partida<br>Teniente Rinaldi y San Martín"
+        "<b>Punto de partida</b><br>" +
+        "Camino Teniente Rinaldi y Av. San Martín"
       );
 
 }
 
 
-/* DISTANCIA */
+/* =========================
+   DISTANCIA
+========================= */
 
 function haversine(a,b){
 
   const R = 6371;
   const p = Math.PI / 180;
 
-  const dLat = (b[0]-a[0]) * p;
-  const dLon = (b[1]-a[1]) * p;
+  const dLat =
+    (b[0] - a[0]) * p;
+
+  const dLon =
+    (b[1] - a[1]) * p;
 
   const x =
-    Math.sin(dLat/2)**2 +
-    Math.cos(a[0]*p) *
-    Math.cos(b[0]*p) *
-    Math.sin(dLon/2)**2;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a[0] * p) *
+    Math.cos(b[0] * p) *
+    Math.sin(dLon / 2) ** 2;
 
-  return 2 * R * Math.asin(Math.sqrt(x));
+  return (
+    2 *
+    R *
+    Math.asin(Math.sqrt(x))
+  );
+
 }
 
 
-/* BUSCAR DIRECCIÓN */
+/* =========================
+   GEOCODIFICAR
+========================= */
 
 async function geocode(q){
 
   const url =
-    "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=uy&q="
-    + encodeURIComponent(q);
+    "https://nominatim.openstreetmap.org/search" +
+    "?format=jsonv2" +
+    "&limit=1" +
+    "&countrycodes=uy" +
+    "&q=" +
+    encodeURIComponent(q);
 
-  const r = await fetch(
-    url,
-    {
-      headers:{
-        "Accept":"application/json"
-      }
-    }
-  );
 
-  if(!r.ok){
-    throw new Error("No se pudo consultar el mapa");
+  const response =
+    await fetch(url);
+
+
+  if(!response.ok){
+    throw new Error(
+      "No se pudo consultar el mapa."
+    );
   }
 
-  const data = await r.json();
+
+  const data =
+    await response.json();
+
 
   if(!data.length){
     throw new Error(
@@ -1331,57 +474,98 @@ async function geocode(q){
     );
   }
 
+
   return [
     parseFloat(data[0].lat),
     parseFloat(data[0].lon)
   ];
+
 }
 
 
-/* PRECIOS */
+/* =========================
+   PRECIO
+========================= */
 
 function getBasePrice(km){
 
-  if(km <= 2)
-    return [zones[0].name,200];
+  if(km <= 2){
+    return [
+      "Zona 1",
+      200
+    ];
+  }
 
-  if(km <= 4)
-    return [zones[1].name,250];
+  if(km <= 4){
+    return [
+      "Zona 2",
+      250
+    ];
+  }
 
-  if(km <= 6)
-    return [zones[2].name,300];
+  if(km <= 6){
+    return [
+      "Zona 3",
+      300
+    ];
+  }
 
-  if(km <= 8)
-    return [zones[3].name,350];
+  if(km <= 8){
+    return [
+      "Zona 4",
+      350
+    ];
+  }
+
 
   return [
     "Fuera de zona",
     400 + Math.ceil(km - 8) * 35
   ];
+
 }
 
 
-/* EXTRAS */
+/* =========================
+   EXTRAS
+========================= */
 
 function extras(){
 
-  return document.getElementById('urgent').checked
-    ? 50
-    : 0;
+  const urgente =
+    document.getElementById("urgent").checked;
+
+
+  if(urgente){
+    return 50;
+  }
+
+
+  return 0;
 
 }
 
 
-/* MOSTRAR RESULTADO */
+/* =========================
+   MOSTRAR RESULTADO
+========================= */
 
 function showResult(km){
 
-  const [name,price] = getBasePrice(km);
+  const result =
+    getBasePrice(km);
+
+  const name =
+    result[0];
+
+  const price =
+    result[1];
+
 
   basePrice = price;
 
 
-  /* Guardar también en Mis envíos */
+  /* pasar datos a Mis envíos */
 
   const zonaInput =
     document.getElementById("zona");
@@ -1394,6 +578,7 @@ function showResult(km){
     zonaInput.value = name;
   }
 
+
   if(precioInput){
     precioInput.value = price;
   }
@@ -1403,33 +588,39 @@ function showResult(km){
     price + extras();
 
 
-  document.getElementById('zone').textContent =
-    name;
+  document.getElementById("zone")
+    .textContent = name;
 
 
-  document.getElementById('price').textContent =
-    "$" + total;
+  document.getElementById("price")
+    .textContent = "$" + total;
 
 
-  document.getElementById('distance').textContent =
-    "Distancia aproximada: " +
-    km.toFixed(1) +
-    " km";
+  document.getElementById("distance")
+    .textContent =
+      "Distancia aproximada: " +
+      km.toFixed(1) +
+      " km";
 
 
-  document.getElementById('detail').textContent =
-    total !== price
-      ? `Base $${price} + extras $${total-price}`
+  document.getElementById("detail")
+    .textContent =
+      total !== price
+      ? "Base $" + price +
+        " + extras $" +
+        (total - price)
       : "Precio base de envío";
 
 
-  document.getElementById('result').style.display =
-    "block";
+  document.getElementById("result")
+    .style.display = "block";
 
 }
 
 
-/* INICIAR MAPA */
+/* =========================
+   INICIAR
+========================= */
 
 async function init(){
 
@@ -1438,40 +629,51 @@ async function init(){
     origin =
       await geocode(ORIGIN_QUERY);
 
-  }catch(e){
+  }catch(error){
 
-    origin = FALLBACK;
+    origin =
+      FALLBACK;
 
   }
 
 
   drawZones();
 
-  map.setView(origin,13);
+
+  map.setView(
+    origin,
+    12
+  );
 
 
-  setTimeout(() => {
+  setTimeout(function(){
+
     map.invalidateSize();
-  },300);
+
+  },500);
 
 }
 
 
-/* BOTÓN CALCULAR */
+/* =========================
+   CONSULTAR PRECIO
+========================= */
 
-document.getElementById('calc').onclick =
-  async () => {
+document.getElementById("calc")
+  .onclick = async function(){
 
     const q =
-      document.getElementById('address')
+      document.getElementById("address")
         .value
         .trim();
 
-    const status =
-      document.getElementById('status');
 
-    const btn =
-      document.getElementById('calc');
+    const status =
+      document.getElementById("status");
+
+
+    const button =
+      document.getElementById("calc");
 
 
     if(!q){
@@ -1484,7 +686,7 @@ document.getElementById('calc').onclick =
     }
 
 
-    btn.disabled = true;
+    button.disabled = true;
 
     status.textContent =
       "Buscando dirección…";
@@ -1496,74 +698,109 @@ document.getElementById('calc').onclick =
         await geocode(q);
 
 
+      /* quitar marcador anterior */
+
       if(destMarker){
 
-        map.removeLayer(destMarker);
+        map.removeLayer(
+          destMarker
+        );
 
       }
 
 
+      /* colocar destino */
+
       destMarker =
         L.marker(destination)
           .addTo(map)
-          .bindPopup("Entrega")
+          .bindPopup(
+            "<b>Entrega</b><br>" + q
+          )
           .openPopup();
 
 
+      /* calcular distancia */
+
       const km =
-        haversine(origin,destination);
+        haversine(
+          origin,
+          destination
+        );
 
 
       showResult(km);
 
 
-      map.fitBounds(
+      /* mostrar origen y destino */
+
+      const bounds =
         L.latLngBounds(
           [origin,destination]
-        ).pad(0.25)
+        );
+
+
+      map.fitBounds(
+        bounds,
+        {
+          padding:[40,40]
+        }
       );
 
 
       status.innerHTML =
-        '<span style="color:#067647">Dirección encontrada.</span>';
+        '<span style="color:#067647">' +
+        "Dirección encontrada." +
+        "</span>";
 
 
-    }catch(e){
+    }catch(error){
 
       status.textContent =
-        e.message;
+        error.message;
 
     }finally{
 
-      btn.disabled = false;
+      button.disabled = false;
 
     }
 
   };
 
 
-/* ACTUALIZAR TOTAL */
+/* =========================
+   ACTUALIZAR TOTAL
+========================= */
 
-document.getElementById('recalc').onclick =
-  () => {
+document.getElementById("recalc")
+  .onclick = function(){
 
     if(destination){
 
-      showResult(
-        haversine(origin,destination)
-      );
+      const km =
+        haversine(
+          origin,
+          destination
+        );
+
+
+      showResult(km);
 
     }
 
   };
 
+
+/* iniciar mapa */
 
 init();
 
 </script>
 
 
-<!-- MIS ENVÍOS -->
+<!-- =========================
+     MIS ENVÍOS
+========================= -->
 
 <div
   id="mis-envios"
@@ -1718,7 +955,9 @@ function guardarEnvio(){
 
   if(!envio.direccion){
 
-    alert("Ingresá una dirección.");
+    alert(
+      "Ingresá una dirección."
+    );
 
     return;
 
@@ -1755,7 +994,9 @@ function guardarEnvio(){
 function mostrarEnvios(){
 
   const lista =
-    document.getElementById("lista-envios");
+    document.getElementById(
+      "lista-envios"
+    );
 
 
   if(envios.length === 0){
@@ -1769,68 +1010,74 @@ function mostrarEnvios(){
 
 
   lista.innerHTML =
-    envios.map(envio => `
+    envios.map(function(envio){
 
-      <div
-        style="
-          background:white;
-          padding:15px;
-          margin:10px 0;
-          border-radius:12px;
-        "
-      >
+      return `
 
-        <strong>
-          ${envio.cliente || "Sin nombre"}
-        </strong>
-
-        <br>
-
-        📍 ${envio.direccion}
-
-        <br>
-
-        🗺️ Zona:
-        ${envio.zona || "Sin zona"}
-
-        <br>
-
-        💰 $${envio.precio || "0"}
-
-        <br>
-
-        📞 ${envio.telefono || "Sin teléfono"}
-
-        <br>
-
-        ${
-          envio.observaciones
-            ? "📝 " + envio.observaciones + "<br>"
-            : ""
-        }
-
-        <br>
-
-        <button
-          onclick="marcarEntregado(${envio.id})"
+        <div
+          style="
+            background:white;
+            padding:15px;
+            margin:10px 0;
+            border-radius:12px;
+          "
         >
+
+          <strong>
+            ${envio.cliente || "Sin nombre"}
+          </strong>
+
+          <br>
+
+          📍 ${envio.direccion}
+
+          <br>
+
+          🗺️ Zona:
+          ${envio.zona || "Sin zona"}
+
+          <br>
+
+          💰 $${envio.precio || "0"}
+
+          <br>
+
+          📞 ${envio.telefono || "Sin teléfono"}
+
+          <br>
+
           ${
-            envio.entregado
-              ? "✅ Entregado"
-              : "☐ Marcar entregado"
+            envio.observaciones
+              ? "📝 " +
+                envio.observaciones +
+                "<br>"
+              : ""
           }
-        </button>
+
+          <br>
+
+          <button
+            onclick="marcarEntregado(${envio.id})"
+          >
+            ${
+              envio.entregado
+                ? "✅ Entregado"
+                : "☐ Marcar entregado"
+            }
+          </button>
 
 
-        <button
-          onclick="eliminarEnvio(${envio.id})"
-        >
-          🗑️ Eliminar
-        </button>
+          <button
+            onclick="eliminarEnvio(${envio.id})"
+          >
+            🗑️ Eliminar
+          </button>
 
-      </div>
+        </div>
 
-    `).join("");
+      `;
+
+    }).join("");
 
 }
 
@@ -1838,7 +1085,9 @@ function mostrarEnvios(){
 function marcarEntregado(id){
 
   const envio =
-    envios.find(e => e.id === id);
+    envios.find(function(e){
+      return e.id === id;
+    });
 
 
   if(envio){
@@ -1869,9 +1118,9 @@ function eliminarEnvio(id){
   ){
 
     envios =
-      envios.filter(
-        e => e.id !== id
-      );
+      envios.filter(function(e){
+        return e.id !== id;
+      });
 
 
     localStorage.setItem(
