@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calculador de envíos</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+:root{
+  --bg:#f4f6f8;
+  --card:#fff;
+  --text:#17202a;
+  --muted:#667085;
+  --accent:#111827;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+.wrap{max-width:720px;margin:auto;padding:18px}
+.brand{text-align:center;padding:12px 0 8px}
+.brand h1{margin:0;font-size:28px}
+.brand p{margin:6px 0;color:var(--muted)}
+.card{
+  background:var(--card);
+  border-radius:18px;
+  padding:18px;
+  margin:14px 0;
+  box-shadow:0 4px 18px #00000010;
+}
+label{display:block;font-weight:700;margin:10px 0 6px}
+input,button,textarea{
+  width:100%;
+  padding:13px;
+  border:1px solid #d0d5dd;
+  border-radius:12px;
+  font-size:16px;
+}
+button{
+  background:var(--accent);
+  color:white;
+  border:0;
+  font-weight:700;
+  cursor:pointer;
+  margin-top:12px;
+}
+button:disabled{opacity:.55}
+.result{display:none;text-align:center}
+.price{font-size:42px;font-weight:800;margin:6px}
+.zone{font-size:20px;font-weight:750}
+.small{color:var(--muted);font-size:13px}
+#map{
+  height:400px;
+  width:100%;
+  border-radius:14px;
+  margin-top:12px;
+  overflow:hidden;
+}
+.legend div{
+  display:flex;
+  justify-content:space-between;
+  padding:7px 0;
+  border-bottom:1px solid #eee;
+}
+.secondary{background:#4285f4}
+.success{background:#067647}
+.danger{background:#b42318}
+.location{background:#7c3aed}
+.point-help{
+  background:#eef4ff;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+  font-size:14px;
+}
+.search-results{
+  margin-top:10px;
+  display:none;
+}
+.search-result{
+  background:#f8fafc;
+  border:1px solid #d0d5dd;
+  border-radius:10px;
+  padding:10px;
+  margin-top:7px;
+  cursor:pointer;
+}
+.search-result:hover{background:#eef4ff}
+.map-help{
+  background:#ecfdf3;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+  font-size:14px;
+}
+.envio-entregado{
+  opacity:.65;
+  border-left:5px solid #067647;
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <h1>🚚 Calculá tu envío</h1>
+    <p>Ingresá las dos calles de la esquina y calculá el precio.</p>
+  </div>
+
+  <!-- =========================
+       PUNTO DE PARTIDA
+  ========================== -->
+  <div class="card">
+    <h3 style="margin-top:0">📍 Punto de partida</h3>
+
+    <div class="point-help">
+      <b>Punto actual:</b> Camino Teniente Rinaldi 5365 esquina Av. San Martín.
+      <br><br>
+      Podés mover el punto azul, buscar otra dirección o usar la ubicación del teléfono.
+    </div>
+
+    <button id="myLocation" type="button" class="location">
+      📱 Usar mi ubicación actual
+    </button>
+
+    <label for="origenBusqueda">Buscar otra dirección de partida</label>
+    <input id="origenBusqueda" placeholder="Ej.: Camino Teniente Rinaldi 5365, Montevideo">
+
+    <button id="buscarOrigen" type="button" class="secondary">
+      🔎 Buscar punto de partida
+    </button>
+
+    <div id="origenResultados" class="search-results"></div>
+    <div id="origenStatus" class="small" style="margin-top:10px"></div>
+  </div>
+
+  <!-- =========================
+       DIRECCIÓN
+  ========================== -->
+  <div class="card">
+    <h3 style="margin-top:0">📍 Dirección de entrega</h3>
+
+    <label for="calle">Primera calle</label>
+    <input id="calle" placeholder="Ej.: Av. Italia" autocomplete="street-address">
+
+    <label for="esquina">Esquina / segunda calle</label>
+    <input id="esquina" placeholder="Ej.: Comercio" autocomplete="street-address">
+
+    <div class="point-help">
+      Ejemplo: <b>Av. Italia</b> y <b>Comercio</b>
+    </div>
+
+    <button id="calc" type="button">
+      📍 Buscar esquina y calcular precio
+    </button>
+
+    <button id="usarMapaEntrega" type="button" class="secondary">
+      📌 Elegir entrega tocando el mapa
+    </button>
+
+    <div id="status" class="small" style="margin-top:10px"></div>
+    <div id="destResultados" class="search-results"></div>
+  </div>
+
+  <!-- =========================
+       RESULTADO
+  ========================== -->
+  <div id="result" class="card result">
+    <div class="zone" id="zone"></div>
+    <div class="price" id="price"></div>
+    <div id="distance"></div>
+    <div id="detail" class="small"></div>
+
+    <button id="googleMapsBtn" type="button" class="secondary">
+      🗺️ Ir con Google Maps
+    </button>
+  </div>
+
+  <!-- =========================
+       TARIFAS
+  ========================== -->
+  <div class="card">
+    <h3 style="margin-top:0">Tarifas</h3>
+    <div class="legend">
+      <div><span>Zona 1 · hasta 2 km</span><b>$200</b></div>
+      <div><span>Zona 2 · 2 a 4 km</span><b>$250</b></div>
+      <div><span>Zona 3 · 4 a 6 km</span><b>$300</b></div>
+      <div><span>Zona 4 · 6 a 8 km</span><b>$350</b></div>
+      <div><span>Más de 8 km</span><b>$400 + $35/km</b></div>
+    </div>
+  </div>
+
+  <!-- =========================
+       EXTRAS
+  ========================== -->
+  <div class="card">
+    <h3 style="margin-top:0">Extras</h3>
+
+    <label>
+      <input type="checkbox" id="urgent" style="width:auto">
+      Urgente $50+
+    </label>
+
+    <button id="recalc" type="button">Actualizar total</button>
+  </div>
+
+  <!-- =========================
+       MAPA
+  ========================== -->
+  <div id="map"></div>
+
+  <div class="card small">
+    <b>Punto de partida:</b>
+    el punto azul es movible.
+    <br><br>
+    <b>Punto de entrega:</b>
+    el punto rojo es movible.
+    También podés tocar directamente el mapa para colocar la entrega.
+    <br><br>
+    <b>Mapa de zonas:</b>
+    los círculos muestran los radios de 2, 4, 6 y 8 km desde el punto de partida.
+    <br><br>
+    La distancia utilizada para determinar la zona es en línea recta.
+  </div>
+
+  <!-- =========================
+       MIS ENVÍOS
+  ========================== -->
+  <div id="mis-envios" class="card">
+    <h2>📦 Mis envíos</h2>
+
+    <input id="cliente" type="text" placeholder="Nombre del cliente">
+
+    <input id="telefono" type="tel" placeholder="Teléfono" style="margin-top:8px">
+
+    <input id="direccion" type="text" placeholder="Dirección" style="margin-top:8px">
+
+    <input id="envioZona" type="text" placeholder="Zona" readonly
+      style="margin-top:8px;background:#eee">
+
+    <input id="precio" type="number" placeholder="Precio del envío"
+      style="margin-top:8px">
+
+    <textarea id="observaciones" placeholder="Observaciones"
+      style="margin-top:8px"></textarea>
+
+    <button id="guardarBtn" type="button">💾 Guardar envío</button>
+
+    <div id="lista-envios" style="margin-top:20px"></div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/* =========================
+   CONFIGURACIÓN
+========================= */
+
+const ORIGIN_QUERY =
+  "Camino Teniente Rinaldi 5365 esquina Av. San Martin, Montevideo, Uruguay";
+
+const FALLBACK = [-34.8245,-56.1650];
+
+let origin = null;
+let destination = null;
+let basePrice = 0;
+
+let circles = [];
+let originMarker = null;
+let destMarker = null;
+
+let currentDestinationName = "";
+let mapSelectingDestination = false;
+
+/* =========================
+   MAPA
+========================= */
+
+const map = L.map("map", {
+  center:FALLBACK,
+  zoom:13,
+  zoomControl:true
+});
+
+L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom:19,
+    attribution:"© OpenStreetMap contributors"
+  }
+).addTo(map);
+
+/* =========================
+   ZONAS
+========================= */
+
+function drawZones(){
+
+  circles.forEach(function(circle){
+    map.removeLayer(circle);
+  });
+
+  circles = [];
+
+  if(!origin) return;
+
+  const zoneData = [
+    {radius:8000,color:"#ef4444"},
+    {radius:6000,color:"#f97316"},
+    {radius:4000,color:"#eab308"},
+    {radius:2000,color:"#22c55e"}
+  ];
+
+  zoneData.forEach(function(zone){
+
+    const circle = L.circle(
+      origin,
+      {
+        radius:zone.radius,
+        color:zone.color,
+        fillColor:zone.color,
+        fillOpacity:0.16,
+        weight:3
+      }
+    ).addTo(map);
+
+    circles.push(circle);
+  });
+
+  if(originMarker){
+    map.removeLayer(originMarker);
+  }
+
+  originMarker = L.marker(origin, {
+    draggable:true
+  }).addTo(map);
+
+  originMarker.bindPopup(
+    "<b>Punto de partida</b><br>" +
+    "Moveme para cambiar el origen."
+  );
+
+  originMarker.on("dragend", async function(){
+    const pos = originMarker.getLatLng();
+
+    origin = [pos.lat,pos.lng];
+
+    drawZones();
+    map.setView(origin, map.getZoom());
+
+    document.getElementById("origenStatus").innerHTML =
+      '<span style="color:#067647">Punto de partida movido.</span>';
+
+    if(destination){
+      await updateDestinationFromMarkers();
+    }
+  });
+}
+
+/* =========================
+   DISTANCIA
+========================= */
+
+function haversine(a,b){
+
+  const R = 6371;
+  const p = Math.PI / 180;
+
+  const dLat = (b[0] - a[0]) * p;
+  const dLon = (b[1] - a[1]) * p;
+
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a[0] * p) *
+    Math.cos(b[0] * p) *
+    Math.sin(dLon / 2) ** 2;
+
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+/* =========================
+   GEOCODIFICAR
+========================= */
+
+async function geocode(q, limit=8){
+
+  const url =
+    "https://nominatim.openstreetmap.org/search" +
+    "?format=jsonv2" +
+    "&limit=" + limit +
+    "&countrycodes=uy" +
+    "&addressdetails=1" +
+    "&q=" + encodeURIComponent(q);
+
+  const response = await fetch(url, {
+    headers:{
+      "Accept":"application/json"
+    }
+  });
+
+  if(!response.ok){
+    throw new Error("No se pudo consultar el mapa.");
+  }
+
+  const data = await response.json();
+
+  if(!data.length){
+    throw new Error(
+      "No encontré esa dirección. Probá con los nombres completos de las calles."
+    );
+  }
+
+  return data.map(function(item){
+    return {
+      lat:parseFloat(item.lat),
+      lon:parseFloat(item.lon),
+      display:item.display_name
+    };
+  });
+}
+
+/* =========================
+   PRECIO
+========================= */
+
+function getBasePrice(km){
+
+  if(km <= 2) return ["Zona 1",200];
+  if(km <= 4) return ["Zona 2",250];
+  if(km <= 6) return ["Zona 3",300];
+  if(km <= 8) return ["Zona 4",350];
+
+  return [
+    "Fuera de zona",
+    400 + Math.ceil(km - 8) * 35
+  ];
+}
+
+/* =========================
+   EXTRAS
+========================= */
+
+function extras(){
+  return document.getElementById("urgent").checked ? 50 : 0;
+}
+
+/* =========================
+   GOOGLE MAPS
+========================= */
+
+function abrirGoogleMaps(direccion){
+
+  if(!direccion){
+    alert("No hay una dirección para abrir en Google Maps.");
+    return;
+  }
+
+  let url =
+    "https://www.google.com/maps/dir/?api=1";
+
+  if(origin){
+    url +=
+      "&origin=" +
+      encodeURIComponent(origin[0] + "," + origin[1]);
+  }
+
+  url +=
+    "&destination=" +
+    encodeURIComponent(direccion) +
+    "&travelmode=driving";
+
+  window.location.href = url;
+}
+
+/* =========================
+   MOSTRAR RESULTADO
+========================= */
+
+function showResult(km){
+
+  const result = getBasePrice(km);
+  const name = result[0];
+  const price = result[1];
+
+  basePrice = price;
+
+  document.getElementById("envioZona").value = name;
+  document.getElementById("precio").value = price;
+
+  const total = price + extras();
+
+  document.getElementById("zone").textContent = name;
+  document.getElementById("price").textContent = "$" + total;
+
+  document.getElementById("distance").textContent =
+    "Distancia aproximada: " + km.toFixed(1) + " km";
+
+  document.getElementById("detail").textContent =
+    total !== price
+      ? "Base $" + price + " + urgente $" + (total - price)
+      : "Precio base de envío";
+
+  document.getElementById("result").style.display = "block";
+}
+
+/* =========================
+   MARCADOR DE ENTREGA
+========================= */
+
+async function setDestination(lat,lon,nombre){
+
+  destination = [lat,lon];
+
+  currentDestinationName =
+    nombre ||
+    (lat.toFixed(6) + "," + lon.toFixed(6));
+
+  if(destMarker){
+    map.removeLayer(destMarker);
+  }
+
+  destMarker = L.marker(destination,{
+    draggable:true
+  }).addTo(map);
+
+  destMarker.bindPopup(
+    "<b>Entrega</b><br>" +
+    "Podés mover este punto."
+  ).openPopup();
+
+  destMarker.on("dragend", async function(){
+
+    const pos = destMarker.getLatLng();
+
+    destination = [pos.lat,pos.lng];
+
+    currentDestinationName =
+      pos.lat.toFixed(6) + "," + pos.lng.toFixed(6);
+
+    await updateDestinationFromMarkers();
+
+  });
+
+  await updateDestinationFromMarkers();
+}
+
+/* =========================
+   ACTUALIZAR DESDE MARCADORES
+========================= */
+
+async function updateDestinationFromMarkers(){
+
+  if(!origin || !destination) return;
+
+  const km = haversine(origin,destination);
+
+  showResult(km);
+
+  if(
+    currentDestinationName &&
+    !currentDestinationName.includes(",")
+  ){
+    document.getElementById("direccion").value =
+      currentDestinationName;
+  }
+
+  document.getElementById("status").innerHTML =
+    '<span style="color:#067647">' +
+    "Punto de entrega actualizado. " +
+    km.toFixed(1) +
+    " km." +
+    "</span>";
+}
+
+/* =========================
+   SELECCIÓN TOCANDO MAPA
+========================= */
+
+map.on("click", async function(e){
+
+  if(!mapSelectingDestination){
+    return;
+  }
+
+  await setDestination(
+    e.latlng.lat,
+    e.latlng.lng,
+    "Punto seleccionado en el mapa"
+  );
+
+  document.getElementById("status").innerHTML =
+    '<span style="color:#067647">' +
+    "Entrega colocada en el mapa. Ahora podés mover el punto rojo." +
+    "</span>";
+
+  mapSelectingDestination = false;
+
+  document.getElementById("usarMapaEntrega").textContent =
+    "📌 Elegir entrega tocando el mapa";
+
+  try{
+    const resultados = await geocode(
+      e.latlng.lat + "," + e.latlng.lng,
+      1
+    );
+
+    if(resultados.length){
+      document.getElementById("direccion").value =
+        resultados[0].display;
+      currentDestinationName =
+        resultados[0].display;
+    }
+  }catch(error){
+    document.getElementById("direccion").value =
+      "Ubicación seleccionada en el mapa";
+  }
+});
+
+document.getElementById("usarMapaEntrega").onclick =
+function(){
+
+  mapSelectingDestination = !mapSelectingDestination;
+
+  if(mapSelectingDestination){
+
+    this.textContent =
+      "📌 Tocá ahora el mapa donde querés entregar";
+
+    document.getElementById("status").textContent =
+      "Tocá cualquier punto del mapa para colocar la entrega.";
+
+  }else{
+
+    this.textContent =
+      "📌 Elegir entrega tocando el mapa";
+
+    document.getElementById("status").textContent = "";
+  }
+};
+
+/* =========================
+   RESULTADOS DE BÚSQUEDA
+========================= */
+
+function mostrarResultadosOrigen(resultados){
+
+  const box =
+    document.getElementById("origenResultados");
+
+  box.innerHTML = "";
+  box.style.display = "block";
+
+  resultados.forEach(function(lugar){
+
+    const item = document.createElement("div");
+    item.className = "search-result";
+    item.textContent = lugar.display;
+
+    item.onclick = function(){
+
+      origin = [lugar.lat,lugar.lon];
+
+      box.style.display = "none";
+      document.getElementById("origenBusqueda").value =
+        lugar.display;
+
+      drawZones();
+
+      map.setView(origin,15);
+
+      document.getElementById("origenStatus").innerHTML =
+        '<span style="color:#067647">Nuevo punto de partida seleccionado.</span>';
+
+      if(destination){
+        updateDestinationFromMarkers();
+      }
+    };
+
+    box.appendChild(item);
+  });
+}
+
+function mostrarResultadosDestino(resultados){
+
+  const box =
+    document.getElementById("destResultados");
+
+  box.innerHTML = "";
+  box.style.display = "block";
+
+  resultados.forEach(function(lugar){
+
+    const item = document.createElement("div");
+    item.className = "search-result";
+    item.textContent = lugar.display;
+
+    item.onclick = async function(){
+
+      box.style.display = "none";
+
+      document.getElementById("direccion").value =
+        lugar.display;
+
+      await setDestination(
+        lugar.lat,
+        lugar.lon,
+        lugar.display
+      );
+
+      map.fitBounds(
+        L.latLngBounds([origin,destination]),
+        {padding:[40,40]}
+      );
+    };
+
+    box.appendChild(item);
+  });
+}
+
+/* =========================
+   BUSCAR ORIGEN
+========================= */
+
+document.getElementById("buscarOrigen").onclick =
+async function(){
+
+  const q =
+    document.getElementById("origenBusqueda")
+      .value.trim();
+
+  const status =
+    document.getElementById("origenStatus");
+
+  if(!q){
+    status.textContent =
+      "Escribí una dirección para buscar.";
+    return;
+  }
+
+  this.disabled = true;
+  status.textContent = "Buscando…";
+
+  try{
+
+    const resultados = await geocode(q,8);
+
+    mostrarResultadosOrigen(resultados);
+
+    status.textContent =
+      "Elegí una de las direcciones encontradas.";
+
+  }catch(error){
+
+    status.textContent = error.message;
+
+  }finally{
+
+    this.disabled = false;
+  }
+};
+
+/* =========================
+   UBICACIÓN ACTUAL
+========================= */
+
+document.getElementById("myLocation").onclick =
+function(){
+
+  const button = this;
+  const status =
+    document.getElementById("origenStatus");
+
+  if(!navigator.geolocation){
+
+    status.textContent =
+      "Este teléfono no permite obtener la ubicación.";
+
+    return;
+  }
+
+  button.disabled = true;
+  status.textContent =
+    "Obteniendo tu ubicación…";
+
+  navigator.geolocation.getCurrentPosition(
+    function(position){
+
+      origin = [
+        position.coords.latitude,
+        position.coords.longitude
+      ];
+
+      drawZones();
+
+      map.setView(origin,16);
+
+      status.innerHTML =
+        '<span style="color:#067647">' +
+        "Ubicación actual usada como punto de partida." +
+        "</span>";
+
+      if(destination){
+        updateDestinationFromMarkers();
+      }
+
+      button.disabled = false;
+    },
+    function(error){
+
+      let mensaje =
+        "No pude obtener tu ubicación.";
+
+      if(error.code === 1){
+        mensaje =
+          "Tenés que permitirle al navegador acceder a tu ubicación.";
+      }
+
+      status.textContent = mensaje;
+      button.disabled = false;
+    },
+    {
+      enableHighAccuracy:true,
+      timeout:15000,
+      maximumAge:0
+    }
+  );
+};
+
+/* =========================
+   CONSULTAR ESQUINA
+========================= */
+
+document.getElementById("calc").onclick =
+async function(){
+
+  const calle =
+    document.getElementById("calle").value.trim();
+
+  const esquina =
+    document.getElementById("esquina").value.trim();
+
+  const status =
+    document.getElementById("status");
+
+  const button = this;
+
+  if(!calle || !esquina){
+
+    status.textContent =
+      "Ingresá las dos calles de la esquina.";
+
+    return;
+  }
+
+  const consulta =
+    calle +
+    " y " +
+    esquina +
+    ", Montevideo, Uruguay";
+
+  button.disabled = true;
+  status.textContent =
+    "Buscando la esquina…";
+
+  try{
+
+    const resultados =
+      await geocode(consulta,8);
+
+    if(resultados.length === 1){
+
+      const lugar = resultados[0];
+
+      await setDestination(
+        lugar.lat,
+        lugar.lon,
+        lugar.display
+      );
+
+      document.getElementById("direccion").value =
+        calle + " y " + esquina;
+
+      map.fitBounds(
+        L.latLngBounds([origin,destination]),
+        {padding:[40,40]}
+      );
+
+      status.innerHTML =
+        '<span style="color:#067647">' +
+        "Esquina encontrada: " +
+        calle + " y " + esquina +
+        "</span>";
+
+    }else{
+
+      mostrarResultadosDestino(resultados);
+
+      status.textContent =
+        "Encontré varias opciones. Elegí la correcta.";
+
+    }
+
+  }catch(error){
+
+    status.textContent =
+      error.message;
+
+  }finally{
+
+    button.disabled = false;
+  }
+};
+
+/* =========================
+   GOOGLE MAPS
+========================= */
+
+document.getElementById("googleMapsBtn").onclick =
+function(){
+
+  abrirGoogleMaps(
+    currentDestinationName ||
+    document.getElementById("direccion").value
+  );
+};
+
+/* =========================
+   ACTUALIZAR TOTAL
+========================= */
+
+document.getElementById("recalc").onclick =
+function(){
+
+  if(destination && origin){
+
+    const km =
+      haversine(origin,destination);
+
+    showResult(km);
+
+  }else{
+
+    alert(
+      "Primero seleccioná un punto de partida y una entrega."
+    );
+  }
+};
+
+document.getElementById("urgent").onchange =
+function(){
+
+  if(destination && origin){
+
+    showResult(
+      haversine(origin,destination)
+    );
+  }
+};
+
+/* =========================
+   INICIAR
+========================= */
+
+async function init(){
+
+  try{
+
+    const lugares =
+      await geocode(ORIGIN_QUERY,1);
+
+    origin = [
+      lugares[0].lat,
+      lugares[0].lon
+    ];
+
+  }catch(error){
+
+    origin = FALLBACK;
+  }
+
+  drawZones();
+
+  map.setView(origin,12);
+
+  setTimeout(function(){
+    map.invalidateSize();
+  },500);
+}
+
+init();
+
+/* =========================
+   MIS ENVÍOS
+========================= */
+
+let envios =
+  JSON.parse(
+    localStorage.getItem("misEnvios")
+  ) || [];
+
+function guardarEnvio(){
+
+  const envio = {
+
+    id:Date.now(),
+
+    cliente:
+      document.getElementById("cliente").value,
+
+    telefono:
+      document.getElementById("telefono").value,
+
+    direccion:
+      document.getElementById("direccion").value,
+
+    zona:
+      document.getElementById("envioZona").value,
+
+    precio:
+      document.getElementById("precio").value,
+
+    observaciones:
+      document.getElementById("observaciones").value,
+
+    entregado:false
+  };
+
+  if(!envio.direccion){
+
+    alert("Primero ingresá una dirección.");
+    return;
+  }
+
+  envios.push(envio);
+
+  localStorage.setItem(
+    "misEnvios",
+    JSON.stringify(envios)
+  );
+
+  document.getElementById("cliente").value="";
+  document.getElementById("telefono").value="";
+  document.getElementById("direccion").value="";
+  document.getElementById("envioZona").value="";
+  document.getElementById("precio").value="";
+  document.getElementById("observaciones").value="";
+
+  mostrarEnvios();
+}
+
+document.getElementById("guardarBtn").onclick =
+guardarEnvio;
+
+/* =========================
+   GOOGLE MAPS DESDE ENVÍOS
+========================= */
+
+function abrirEnvioEnGoogleMaps(id){
+
+  const envio =
+    envios.find(function(e){
+      return e.id === id;
+    });
+
+  if(!envio || !envio.direccion){
+
+    alert("Este envío no tiene dirección.");
+    return;
+  }
+
+  abrirGoogleMaps(
+    envio.direccion +
+    ", Montevideo, Uruguay"
+  );
+}
+
+/* =========================
+   MOSTRAR ENVÍOS
+========================= */
+
+function mostrarEnvios(){
+
+  const lista =
+    document.getElementById("lista-envios");
+
+  if(envios.length === 0){
+
+    lista.innerHTML =
+      "<p>No tenés envíos guardados.</p>";
+
+    return;
+  }
+
+  lista.innerHTML =
+    envios.map(function(envio){
+
+      return `
+        <div
+          class="${envio.entregado ? "envio-entregado" : ""}"
+          style="
+            background:white;
+            padding:15px;
+            margin:10px 0;
+            border-radius:12px;
+            box-shadow:0 2px 8px #00000008;
+          "
+        >
+
+          <strong>
+            ${escapeHtml(envio.cliente || "Sin nombre")}
+          </strong>
+
+          <br><br>
+
+          📍 ${escapeHtml(envio.direccion || "Sin dirección")}
+
+          <br>
+
+          🗺️ Zona:
+          ${escapeHtml(envio.zona || "Sin zona")}
+
+          <br>
+
+          💰 $${escapeHtml(envio.precio || "0")}
+
+          <br>
+
+          📞 ${escapeHtml(envio.telefono || "Sin teléfono")}
+
+          <br>
+
+          ${
+            envio.observaciones
+              ? "📝 " + escapeHtml(envio.observaciones) + "<br>"
+              : ""
+          }
+
+          <button
+            onclick="abrirEnvioEnGoogleMaps(${envio.id})"
+            class="secondary"
+          >
+            🗺️ Ir con Google Maps
+          </button>
+
+          <button
+            onclick="marcarEntregado(${envio.id})"
+            class="success"
+          >
+            ${
+              envio.entregado
+                ? "↩️ Marcar como pendiente"
+                : "☐ Marcar entregado"
+            }
+          </button>
+
+          <button
+            onclick="eliminarEnvio(${envio.id})"
+            class="danger"
+          >
+            🗑️ Eliminar
+          </button>
+
+        </div>
+      `;
+
+    }).join("");
+}
+
+/* =========================
+   SEGURIDAD PARA TEXTO GUARDADO
+========================= */
+
+function escapeHtml(text){
+
+  return String(text)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+/* =========================
+   ENTREGADO
+========================= */
+
+function marcarEntregado(id){
+
+  const envio =
+    envios.find(function(e){
+      return e.id === id;
+    });
+
+  if(envio){
+
+    envio.entregado =
+      !envio.entregado;
+
+    localStorage.setItem(
+      "misEnvios",
+      JSON.stringify(envios)
+    );
+
+    mostrarEnvios();
+  }
+}
+
+/* =========================
+   ELIMINAR
+========================= */
+
+function eliminarEnvio(id){
+
+  if(confirm("¿Querés eliminar este envío?")){
+
+    envios =
+      envios.filter(function(e){
+        return e.id !== id;
+      });
+
+    localStorage.setItem(
+      "misEnvios",
+      JSON.stringify(envios)
+    );
+
+    mostrarEnvios();
+  }
+}
+
+mostrarEnvios();
+
+</script>
+</body>
+</html>
