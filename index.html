@@ -13,7 +13,7 @@
   --card:#fff;
   --text:#17202a;
   --muted:#667085;
-  --accent:#111827
+  --accent:#111827;
 }
 
 *{box-sizing:border-box}
@@ -22,28 +22,28 @@ body{
   margin:0;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   background:var(--bg);
-  color:var(--text)
+  color:var(--text);
 }
 
 .wrap{
   max-width:720px;
   margin:auto;
-  padding:18px
+  padding:18px;
 }
 
 .brand{
   text-align:center;
-  padding:12px 0 8px
+  padding:12px 0 8px;
 }
 
 .brand h1{
   margin:0;
-  font-size:28px
+  font-size:28px;
 }
 
 .brand p{
   margin:6px 0;
-  color:var(--muted)
+  color:var(--muted);
 }
 
 .card{
@@ -51,21 +51,21 @@ body{
   border-radius:18px;
   padding:18px;
   margin:14px 0;
-  box-shadow:0 4px 18px #00000010
+  box-shadow:0 4px 18px #00000010;
 }
 
 label{
   display:block;
   font-weight:700;
-  margin:10px 0 6px
+  margin:10px 0 6px;
 }
 
-input,select,button{
+input,button,textarea{
   width:100%;
   padding:13px;
   border:1px solid #d0d5dd;
   border-radius:12px;
-  font-size:16px
+  font-size:16px;
 }
 
 button{
@@ -74,32 +74,32 @@ button{
   border:0;
   font-weight:700;
   cursor:pointer;
-  margin-top:12px
+  margin-top:12px;
 }
 
 button:disabled{
-  opacity:.55
+  opacity:.55;
 }
 
 .result{
   display:none;
-  text-align:center
+  text-align:center;
 }
 
 .price{
   font-size:42px;
   font-weight:800;
-  margin:6px
+  margin:6px;
 }
 
 .zone{
   font-size:20px;
-  font-weight:750
+  font-weight:750;
 }
 
 .small{
   color:var(--muted);
-  font-size:13px
+  font-size:13px;
 }
 
 #map{
@@ -107,19 +107,36 @@ button:disabled{
   width:100%;
   border-radius:14px;
   margin-top:12px;
-  overflow:hidden
+  overflow:hidden;
 }
 
 .legend div{
   display:flex;
   justify-content:space-between;
   padding:7px 0;
-  border-bottom:1px solid #eee
+  border-bottom:1px solid #eee;
 }
 
-a{
-  color:inherit
+.secondary{
+  background:#4285f4;
 }
+
+.success{
+  background:#067647;
+}
+
+.danger{
+  background:#b42318;
+}
+
+.point-help{
+  background:#eef4ff;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+  font-size:14px;
+}
+
 </style>
 </head>
 
@@ -129,22 +146,51 @@ a{
 
   <div class="brand">
     <h1>🚚 Calculá tu envío</h1>
-    <p>Ingresá tu dirección y te decimos la zona y el precio.</p>
+    <p>Ingresá las dos calles de la esquina y calculá el precio.</p>
   </div>
+
+
+  <!-- =========================
+       DIRECCIÓN
+  ========================== -->
 
   <div class="card">
 
-    <label for="address">Dirección de entrega</label>
+    <h3 style="margin-top:0">
+      📍 Dirección de entrega
+    </h3>
+
+    <label for="calle">
+      Primera calle
+    </label>
 
     <input
-      id="address"
-      placeholder="Ej.: Av. 8 de Octubre 2500, Montevideo"
+      id="calle"
+      placeholder="Ej.: Av. Italia"
       autocomplete="street-address"
     >
 
+
+    <label for="esquina">
+      Esquina / segunda calle
+    </label>
+
+    <input
+      id="esquina"
+      placeholder="Ej.: Comercio"
+      autocomplete="street-address"
+    >
+
+
+    <div class="point-help">
+      Ejemplo: <b>Av. Italia</b> y <b>Comercio</b>
+    </div>
+
+
     <button id="calc">
-      Consultar precio
+      📍 Buscar esquina y calcular precio
     </button>
+
 
     <div
       id="status"
@@ -155,6 +201,10 @@ a{
   </div>
 
 
+  <!-- =========================
+       RESULTADO
+  ========================== -->
+
   <div id="result" class="card result">
 
     <div
@@ -162,20 +212,36 @@ a{
       id="zone"
     ></div>
 
+
     <div
       class="price"
       id="price"
     ></div>
 
+
     <div id="distance"></div>
+
 
     <div
       id="detail"
       class="small"
     ></div>
 
+
+    <button
+      id="googleMapsBtn"
+      type="button"
+      class="secondary"
+    >
+      🗺️ Ir con Google Maps
+    </button>
+
   </div>
 
+
+  <!-- =========================
+       TARIFAS
+  ========================== -->
 
   <div class="card">
 
@@ -215,6 +281,10 @@ a{
   </div>
 
 
+  <!-- =========================
+       EXTRAS
+  ========================== -->
+
   <div class="card">
 
     <h3 style="margin-top:0">
@@ -230,6 +300,7 @@ a{
       Urgente $50+
     </label>
 
+
     <button
       id="recalc"
       type="button"
@@ -239,6 +310,10 @@ a{
 
   </div>
 
+
+  <!-- =========================
+       MAPA
+  ========================== -->
 
   <div id="map"></div>
 
@@ -259,40 +334,101 @@ a{
 
   </div>
 
+
+  <!-- =========================
+       MIS ENVÍOS
+  ========================== -->
+
+  <div
+    id="mis-envios"
+    class="card"
+  >
+
+    <h2>📦 Mis envíos</h2>
+
+
+    <input
+      id="cliente"
+      type="text"
+      placeholder="Nombre del cliente"
+    >
+
+
+    <input
+      id="telefono"
+      type="tel"
+      placeholder="Teléfono"
+      style="margin-top:8px"
+    >
+
+
+    <input
+      id="direccion"
+      type="text"
+      placeholder="Dirección"
+      style="margin-top:8px"
+    >
+
+
+    <input
+      id="zona"
+      type="text"
+      placeholder="Zona"
+      readonly
+      style="
+        margin-top:8px;
+        background:#eee;
+      "
+    >
+
+
+    <input
+      id="precio"
+      type="number"
+      placeholder="Precio del envío"
+      style="margin-top:8px"
+    >
+
+
+    <textarea
+      id="observaciones"
+      placeholder="Observaciones"
+      style="margin-top:8px"
+    ></textarea>
+
+
+    <button
+      onclick="guardarEnvio()"
+    >
+      💾 Guardar envío
+    </button>
+
+
+    <div
+      id="lista-envios"
+      style="margin-top:20px"
+    ></div>
+
+  </div>
+
 </div>
 
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+
 <script>
+
+/* =========================
+   CONFIGURACIÓN
+========================= */
 
 const ORIGIN_QUERY =
   "Camino Teniente Rinaldi 5365 esquina Av. San Martin, Montevideo, Uruguay";
 
-const FALLBACK = [-34.8245,-56.1650];
+const FALLBACK =
+  [-34.8245,-56.1650];
 
-const zones = [
-  {
-    max:2,
-    name:"Zona 1",
-    price:200
-  },
-  {
-    max:4,
-    name:"Zona 2",
-    price:250
-  },
-  {
-    max:6,
-    name:"Zona 3",
-    price:300
-  },
-  {
-    max:8,
-    name:"Zona 4",
-    price:350
-  }
-];
 
 let origin = null;
 let destination = null;
@@ -302,12 +438,14 @@ let circles = [];
 let originMarker = null;
 let destMarker = null;
 
+let currentDestinationName = "";
+
 
 /* =========================
    MAPA
 ========================= */
 
-const map = L.map("map", {
+const map = L.map("map",{
   center:FALLBACK,
   zoom:13,
   zoomControl:true
@@ -324,12 +462,10 @@ L.tileLayer(
 
 
 /* =========================
-   DIBUJAR ZONAS
+   ZONAS
 ========================= */
 
 function drawZones(){
-
-  /* borrar círculos anteriores */
 
   circles.forEach(function(circle){
     map.removeLayer(circle);
@@ -338,35 +474,26 @@ function drawZones(){
   circles = [];
 
 
-  /*
-    Cada círculo representa el radio
-    acumulado desde el punto de partida.
-  */
-
   const zoneData = [
 
     {
       radius:8000,
-      color:"#ef4444",
-      fill:"#ef4444"
+      color:"#ef4444"
     },
 
     {
       radius:6000,
-      color:"#f97316",
-      fill:"#f97316"
+      color:"#f97316"
     },
 
     {
       radius:4000,
-      color:"#eab308",
-      fill:"#eab308"
+      color:"#eab308"
     },
 
     {
       radius:2000,
-      color:"#22c55e",
-      fill:"#22c55e"
+      color:"#22c55e"
     }
 
   ];
@@ -374,23 +501,22 @@ function drawZones(){
 
   zoneData.forEach(function(zone){
 
-    const circle = L.circle(
-      origin,
-      {
-        radius:zone.radius,
-        color:zone.color,
-        fillColor:zone.fill,
-        fillOpacity:0.16,
-        weight:3
-      }
-    ).addTo(map);
+    const circle =
+      L.circle(
+        origin,
+        {
+          radius:zone.radius,
+          color:zone.color,
+          fillColor:zone.color,
+          fillOpacity:0.16,
+          weight:3
+        }
+      ).addTo(map);
 
     circles.push(circle);
 
   });
 
-
-  /* marcador del origen */
 
   if(originMarker){
     map.removeLayer(originMarker);
@@ -439,7 +565,7 @@ function haversine(a,b){
 
 
 /* =========================
-   GEOCODIFICAR
+   BUSCAR DIRECCIÓN
 ========================= */
 
 async function geocode(q){
@@ -470,15 +596,16 @@ async function geocode(q){
 
   if(!data.length){
     throw new Error(
-      "No encontré esa dirección. Probá con calle y número."
+      "No encontré esa esquina. Probá con los nombres completos de las calles."
     );
   }
 
 
-  return [
-    parseFloat(data[0].lat),
-    parseFloat(data[0].lon)
-  ];
+  return {
+    lat:parseFloat(data[0].lat),
+    lon:parseFloat(data[0].lon),
+    display:data[0].display_name
+  };
 
 }
 
@@ -490,31 +617,19 @@ async function geocode(q){
 function getBasePrice(km){
 
   if(km <= 2){
-    return [
-      "Zona 1",
-      200
-    ];
+    return ["Zona 1",200];
   }
 
   if(km <= 4){
-    return [
-      "Zona 2",
-      250
-    ];
+    return ["Zona 2",250];
   }
 
   if(km <= 6){
-    return [
-      "Zona 3",
-      300
-    ];
+    return ["Zona 3",300];
   }
 
   if(km <= 8){
-    return [
-      "Zona 4",
-      350
-    ];
+    return ["Zona 4",350];
   }
 
 
@@ -532,16 +647,39 @@ function getBasePrice(km){
 
 function extras(){
 
-  const urgente =
-    document.getElementById("urgent").checked;
-
-
-  if(urgente){
+  if(
+    document.getElementById("urgent").checked
+  ){
     return 50;
   }
 
-
   return 0;
+
+}
+
+
+/* =========================
+   GOOGLE MAPS
+========================= */
+
+function abrirGoogleMaps(direccion){
+
+  if(!direccion){
+    alert(
+      "No hay una dirección para abrir en Google Maps."
+    );
+    return;
+  }
+
+
+  const url =
+    "https://www.google.com/maps/dir/?api=1" +
+    "&destination=" +
+    encodeURIComponent(direccion) +
+    "&travelmode=driving";
+
+
+  window.location.href = url;
 
 }
 
@@ -565,23 +703,11 @@ function showResult(km){
   basePrice = price;
 
 
-  /* pasar datos a Mis envíos */
+  document.getElementById("zona").value =
+    name;
 
-  const zonaInput =
-    document.getElementById("zona");
-
-  const precioInput =
-    document.getElementById("precio");
-
-
-  if(zonaInput){
-    zonaInput.value = name;
-  }
-
-
-  if(precioInput){
-    precioInput.value = price;
-  }
+  document.getElementById("precio").value =
+    price;
 
 
   const total =
@@ -593,7 +719,8 @@ function showResult(km){
 
 
   document.getElementById("price")
-    .textContent = "$" + total;
+    .textContent =
+      "$" + total;
 
 
   document.getElementById("distance")
@@ -607,15 +734,211 @@ function showResult(km){
     .textContent =
       total !== price
       ? "Base $" + price +
-        " + extras $" +
+        " + urgente $" +
         (total - price)
       : "Precio base de envío";
 
 
   document.getElementById("result")
-    .style.display = "block";
+    .style.display =
+      "block";
 
 }
+
+
+/* =========================
+   BOTÓN GOOGLE MAPS
+========================= */
+
+document.getElementById(
+  "googleMapsBtn"
+).onclick = function(){
+
+  abrirGoogleMaps(
+    currentDestinationName
+  );
+
+};
+
+
+/* =========================
+   CONSULTAR ESQUINA
+========================= */
+
+document.getElementById("calc")
+.onclick = async function(){
+
+  const calle =
+    document.getElementById("calle")
+      .value
+      .trim();
+
+  const esquina =
+    document.getElementById("esquina")
+      .value
+      .trim();
+
+  const status =
+    document.getElementById("status");
+
+  const button =
+    document.getElementById("calc");
+
+
+  if(!calle || !esquina){
+
+    status.textContent =
+      "Ingresá las dos calles de la esquina.";
+
+    return;
+
+  }
+
+
+  /*
+    Agregamos Montevideo para ayudar
+    al buscador a encontrar la esquina.
+  */
+
+  const consulta =
+    calle +
+    " y " +
+    esquina +
+    ", Montevideo, Uruguay";
+
+
+  button.disabled = true;
+
+  status.textContent =
+    "Buscando la esquina…";
+
+
+  try{
+
+    const lugar =
+      await geocode(consulta);
+
+
+    destination =
+      [
+        lugar.lat,
+        lugar.lon
+      ];
+
+
+    currentDestinationName =
+      lugar.display;
+
+
+    if(destMarker){
+
+      map.removeLayer(
+        destMarker
+      );
+
+    }
+
+
+    destMarker =
+      L.marker(destination)
+        .addTo(map)
+        .bindPopup(
+          "<b>Entrega</b><br>" +
+          calle +
+          " y " +
+          esquina
+        )
+        .openPopup();
+
+
+    const km =
+      haversine(
+        origin,
+        destination
+      );
+
+
+    showResult(km);
+
+
+    /*
+      Guardar la dirección completa
+      en Mis envíos.
+    */
+
+    document.getElementById(
+      "direccion"
+    ).value =
+      calle +
+      " y " +
+      esquina;
+
+
+    /*
+      Mostrar origen y destino.
+    */
+
+    const bounds =
+      L.latLngBounds(
+        [
+          origin,
+          destination
+        ]
+      );
+
+
+    map.fitBounds(
+      bounds,
+      {
+        padding:[40,40]
+      }
+    );
+
+
+    status.innerHTML =
+      '<span style="color:#067647">' +
+      "Esquina encontrada: " +
+      calle +
+      " y " +
+      esquina +
+      "</span>";
+
+
+  }catch(error){
+
+    status.textContent =
+      error.message;
+
+  }finally{
+
+    button.disabled = false;
+
+  }
+
+};
+
+
+/* =========================
+   ACTUALIZAR TOTAL
+========================= */
+
+document.getElementById("recalc")
+.onclick = function(){
+
+  if(destination){
+
+    const km =
+      haversine(
+        origin,
+        destination
+      );
+
+
+    showResult(km);
+
+  }
+
+};
 
 
 /* =========================
@@ -626,8 +949,17 @@ async function init(){
 
   try{
 
+    const lugar =
+      await geocode(
+        ORIGIN_QUERY
+      );
+
+
     origin =
-      await geocode(ORIGIN_QUERY);
+      [
+        lugar.lat,
+        lugar.lon
+      ];
 
   }catch(error){
 
@@ -655,268 +987,12 @@ async function init(){
 }
 
 
-/* =========================
-   CONSULTAR PRECIO
-========================= */
-
-document.getElementById("calc")
-  .onclick = async function(){
-
-    const q =
-      document.getElementById("address")
-        .value
-        .trim();
-
-
-    const status =
-      document.getElementById("status");
-
-
-    const button =
-      document.getElementById("calc");
-
-
-    if(!q){
-
-      status.textContent =
-        "Escribí una dirección.";
-
-      return;
-
-    }
-
-
-    button.disabled = true;
-
-    status.textContent =
-      "Buscando dirección…";
-
-
-    try{
-
-      destination =
-        await geocode(q);
-
-
-      /* quitar marcador anterior */
-
-      if(destMarker){
-
-        map.removeLayer(
-          destMarker
-        );
-
-      }
-
-
-      /* colocar destino */
-
-      destMarker =
-        L.marker(destination)
-          .addTo(map)
-          .bindPopup(
-            "<b>Entrega</b><br>" + q
-          )
-          .openPopup();
-
-
-      /* calcular distancia */
-
-      const km =
-        haversine(
-          origin,
-          destination
-        );
-
-
-      showResult(km);
-
-
-      /* mostrar origen y destino */
-
-      const bounds =
-        L.latLngBounds(
-          [origin,destination]
-        );
-
-
-      map.fitBounds(
-        bounds,
-        {
-          padding:[40,40]
-        }
-      );
-
-
-      status.innerHTML =
-        '<span style="color:#067647">' +
-        "Dirección encontrada." +
-        "</span>";
-
-
-    }catch(error){
-
-      status.textContent =
-        error.message;
-
-    }finally{
-
-      button.disabled = false;
-
-    }
-
-  };
-
-
-/* =========================
-   ACTUALIZAR TOTAL
-========================= */
-
-document.getElementById("recalc")
-  .onclick = function(){
-
-    if(destination){
-
-      const km =
-        haversine(
-          origin,
-          destination
-        );
-
-
-      showResult(km);
-
-    }
-
-  };
-
-
-/* iniciar mapa */
-
 init();
 
-</script>
 
-
-<!-- =========================
-     MIS ENVÍOS
-========================= -->
-
-<div
-  id="mis-envios"
-  style="
-    margin:20px 0;
-    padding:20px;
-    border-radius:15px;
-    background:#f5f5f5;
-  "
->
-
-  <h2>📦 Mis envíos</h2>
-
-
-  <input
-    id="cliente"
-    type="text"
-    placeholder="Nombre del cliente"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  >
-
-
-  <input
-    id="telefono"
-    type="tel"
-    placeholder="Teléfono"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  >
-
-
-  <input
-    id="direccion"
-    type="text"
-    placeholder="Dirección"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  >
-
-
-  <input
-    id="zona"
-    type="text"
-    placeholder="Zona"
-    readonly
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-      background:#eee;
-    "
-  >
-
-
-  <input
-    id="precio"
-    type="number"
-    placeholder="Precio del envío"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  >
-
-
-  <textarea
-    id="observaciones"
-    placeholder="Observaciones"
-    style="
-      width:100%;
-      padding:12px;
-      margin:5px 0;
-      box-sizing:border-box;
-    "
-  ></textarea>
-
-
-  <button
-    onclick="guardarEnvio()"
-    style="
-      width:100%;
-      padding:14px;
-      margin-top:8px;
-      border:0;
-      border-radius:10px;
-    "
-  >
-    💾 Guardar envío
-  </button>
-
-
-  <div
-    id="lista-envios"
-    style="margin-top:20px;"
-  ></div>
-
-</div>
-
-
-<script>
+/* =========================
+   MIS ENVÍOS
+========================= */
 
 let envios =
   JSON.parse(
@@ -931,22 +1007,34 @@ function guardarEnvio(){
     id:Date.now(),
 
     cliente:
-      document.getElementById("cliente").value,
+      document.getElementById(
+        "cliente"
+      ).value,
 
     telefono:
-      document.getElementById("telefono").value,
+      document.getElementById(
+        "telefono"
+      ).value,
 
     direccion:
-      document.getElementById("direccion").value,
+      document.getElementById(
+        "direccion"
+      ).value,
 
     zona:
-      document.getElementById("zona").value,
+      document.getElementById(
+        "zona"
+      ).value,
 
     precio:
-      document.getElementById("precio").value,
+      document.getElementById(
+        "precio"
+      ).value,
 
     observaciones:
-      document.getElementById("observaciones").value,
+      document.getElementById(
+        "observaciones"
+      ).value,
 
     entregado:false
 
@@ -956,7 +1044,7 @@ function guardarEnvio(){
   if(!envio.direccion){
 
     alert(
-      "Ingresá una dirección."
+      "Primero ingresá una dirección."
     );
 
     return;
@@ -973,23 +1061,56 @@ function guardarEnvio(){
   );
 
 
-  document.getElementById("cliente").value = "";
-
-  document.getElementById("telefono").value = "";
-
-  document.getElementById("direccion").value = "";
-
-  document.getElementById("zona").value = "";
-
-  document.getElementById("precio").value = "";
-
-  document.getElementById("observaciones").value = "";
+  document.getElementById("cliente").value="";
+  document.getElementById("telefono").value="";
+  document.getElementById("direccion").value="";
+  document.getElementById("zona").value="";
+  document.getElementById("precio").value="";
+  document.getElementById("observaciones").value="";
 
 
   mostrarEnvios();
 
 }
 
+
+/* =========================
+   GOOGLE MAPS DESDE ENVÍOS
+========================= */
+
+function abrirEnvioEnGoogleMaps(id){
+
+  const envio =
+    envios.find(function(e){
+      return e.id === id;
+    });
+
+
+  if(
+    !envio ||
+    !envio.direccion
+  ){
+
+    alert(
+      "Este envío no tiene dirección."
+    );
+
+    return;
+
+  }
+
+
+  abrirGoogleMaps(
+    envio.direccion +
+    ", Montevideo, Uruguay"
+  );
+
+}
+
+
+/* =========================
+   MOSTRAR ENVÍOS
+========================= */
 
 function mostrarEnvios(){
 
@@ -1027,7 +1148,7 @@ function mostrarEnvios(){
             ${envio.cliente || "Sin nombre"}
           </strong>
 
-          <br>
+          <br><br>
 
           📍 ${envio.direccion}
 
@@ -1054,10 +1175,25 @@ function mostrarEnvios(){
               : ""
           }
 
-          <br>
 
           <button
-            onclick="marcarEntregado(${envio.id})"
+            onclick="
+              abrirEnvioEnGoogleMaps(
+                ${envio.id}
+              )
+            "
+            class="secondary"
+          >
+            🗺️ Ir con Google Maps
+          </button>
+
+
+          <button
+            onclick="
+              marcarEntregado(
+                ${envio.id}
+              )
+            "
           >
             ${
               envio.entregado
@@ -1068,7 +1204,12 @@ function mostrarEnvios(){
 
 
           <button
-            onclick="eliminarEnvio(${envio.id})"
+            onclick="
+              eliminarEnvio(
+                ${envio.id}
+              )
+            "
+            class="danger"
           >
             🗑️ Eliminar
           </button>
@@ -1081,6 +1222,10 @@ function mostrarEnvios(){
 
 }
 
+
+/* =========================
+   ENTREGADO
+========================= */
 
 function marcarEntregado(id){
 
@@ -1108,6 +1253,10 @@ function marcarEntregado(id){
 
 }
 
+
+/* =========================
+   ELIMINAR
+========================= */
 
 function eliminarEnvio(id){
 
