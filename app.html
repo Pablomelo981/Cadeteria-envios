@@ -2,188 +2,72 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#067647">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cadetería - Pedidos</title>
-<link rel="manifest" href="manifest.json">
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
-:root{
- --bg:#f2f4f7;
- --card:#fff;
- --text:#101828;
- --muted:#667085;
- --green:#067647;
- --blue:#175cd3;
- --red:#b42318;
- --orange:#c4320a
-}
-*{box-sizing:border-box}
 body{
- margin:0;
- background:var(--bg);
- color:var(--text);
- font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif
+font-family:Arial;
+margin:0;
+background:#f2f2f2;
+color:#222
 }
 header{
- background:var(--green);
- color:white;
- padding:18px 16px;
- position:sticky;
- top:0;
- z-index:1000
+background:#111;
+color:white;
+padding:15px;
+text-align:center
 }
-.header-row{
- max-width:900px;
- margin:auto;
- display:flex;
- align-items:center;
- justify-content:space-between;
- gap:10px
+main{
+max-width:600px;
+margin:auto;
+padding:12px
 }
-header h1{margin:0;font-size:23px}
-header small{opacity:.9}
-.wrap{max-width:900px;margin:auto;padding:14px}
-.card{
- background:#fff;
- border-radius:18px;
- padding:17px;
- margin:12px 0;
- box-shadow:0 4px 18px #0000000d
+input,button,select{
+width:100%;
+box-sizing:border-box;
+padding:12px;
+margin:5px 0;
+border-radius:8px;
+border:1px solid #ccc;
+font-size:16px
 }
-button,input{font:inherit}
 button{
- border:0;
- border-radius:12px;
- padding:12px 14px;
- font-weight:750;
- cursor:pointer
+background:#111;
+color:white;
+border:0
 }
-button:disabled{opacity:.55}
-.login button,.refresh{
- width:100%;
- background:var(--green);
- color:white
+.card{
+background:white;
+border-radius:12px;
+padding:12px;
+margin:12px 0;
+box-shadow:0 2px 8px #bbb
 }
-.logout{background:#475467;color:white}
-.blue{
- background:var(--blue);
- color:white;
- width:100%;
- margin-top:10px
+.nuevo{
+border:3px solid #18a558
 }
-.error{
- background:#fff1f0;
- border:1px solid #f4b4af;
- color:var(--red);
- padding:12px;
- border-radius:12px;
- margin-top:10px;
- word-break:break-word
+.urgente{
+color:#c00;
+font-weight:bold
 }
-.ok{
- background:#ecfdf3;
- border:1px solid #abefc6;
- color:var(--green);
- padding:12px;
- border-radius:12px;
- margin-top:10px
+#map{
+height:220px;
+margin-top:8px;
+border-radius:10px
 }
-.hidden{display:none!important}
-label{
- display:block;
- font-weight:700;
- margin:10px 0 6px
+#error{
+color:#c00
 }
-input{
- width:100%;
- padding:13px;
- border:1px solid #d0d5dd;
- border-radius:12px
+.oculto{
+display:none
 }
-.order{border:2px solid #eaecf0}
-.order.urgent{border-color:#f79009}
-.order.new{
- border-color:#12b76a;
- box-shadow:0 5px 20px #12b76a22
-}
-.new-banner{
- background:#ecfdf3;
- color:#067647;
- border:1px solid #abefc6;
- border-radius:12px;
- padding:10px 12px;
- font-weight:850;
- margin-bottom:10px
-}
-.top{
- display:flex;
- justify-content:space-between;
- gap:10px;
- align-items:center
-}
-.top h2{margin:0}
-.meta{
- font-size:13px;
- color:var(--muted);
- margin-top:4px
-}
-.info{margin:8px 0}
-.badge{
- display:inline-block;
- padding:5px 9px;
- border-radius:999px;
- font-size:12px;
- font-weight:800;
- background:#eef4ff;
- color:#175cd3
-}
-.badge.urgent{
- background:#fff0e6;
- color:var(--orange)
-}
-.money{
- font-size:29px;
- font-weight:850
-}
-.map{
- height:240px;
- border-radius:13px;
- margin-top:12px
-}
-.empty{
- text-align:center;
- color:var(--muted);
- padding:28px
-}
-.actions{
- display:grid;
- grid-template-columns:1fr 1fr;
- gap:8px;
- margin-top:10px
-}
-.actions button{width:100%}
-.status-select{
- width:100%;
- padding:12px;
- border:1px solid #d0d5dd;
- border-radius:12px;
- margin-top:10px;
- background:white;
- font:inherit
-}
-.delete-btn{
- background:#b42318;
- color:white;
- width:100%;
- margin-top:10px
-}
-@media(max-width:520px){
- .actions{grid-template-columns:1fr}
+.mini{
+height:220px;
+margin-top:8px;
+border-radius:10px
 }
 </style>
 </head>
@@ -191,319 +75,118 @@ input{
 <body>
 
 <header>
- <div class="header-row">
-  <div>
-   <h1>🚚 Cadetería</h1>
-   <small>Panel de pedidos</small>
-  </div>
-  <button id="logout" class="logout">Salir</button>
- </div>
+<b>🚴 CADETERÍA - PEDIDOS</b>
 </header>
 
-<div class="wrap">
+<main>
 
-<section id="loginCard" class="card login">
- <h2>🔐 Ingresar</h2>
- <p style="color:var(--muted)">
-  Esta aplicación es solamente para la cadetería.
- </p>
+<div id="login">
+<h2>Ingresar</h2>
 
- <label>Correo</label>
- <input id="email" type="email" autocomplete="username" placeholder="Correo del administrador">
+<input id="email" type="email" placeholder="Correo">
 
- <label>Contraseña</label>
- <input id="password" type="password" autocomplete="current-password" placeholder="Contraseña">
+<input id="pass" type="password" placeholder="Contraseña">
 
- <button id="login">Ingresar</button>
+<button onclick="login()">Ingresar</button>
 
- <div id="loginError" class="error hidden"></div>
-</section>
+<p id="error"></p>
+</div>
 
-<section id="app" class="hidden">
 
- <div class="card">
-  <div class="top">
-   <div>
-    <h2>📦 Pedidos</h2>
-    <div id="count" class="meta">Cargando…</div>
-   </div>
+<div id="panel" class="oculto">
 
-   <button id="refresh" class="refresh">🔄</button>
-  </div>
+<button onclick="logout()">Cerrar sesión</button>
 
-  <div id="message"></div>
- </div>
-
- <div id="orders"></div>
-
-</section>
+<div id="pedidos"></div>
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</main>
+
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 
-const SUPABASE_URL =
-"https://umqbrzgbsfzeggnyhfcu.supabase.co";
+const URL="https://umqbrzgbsfzeggnyhfcu.supabase.co";
 
-const SUPABASE_KEY =
-"sb_publishable_WIcZQ2owPoPYs5edb51j-g_mLvI0VTX";
+const KEY="sb_publishable_WIcZQ2owPoPYs5edb51j-g_mLvI0VTX";
 
-const ADMIN_UUID =
-"1542195c-af82-42e6-b011-bb7a9923a88f";
+const ADMIN="1542195c-af82-42e6-b011-bb7a9923a88f";
 
-const sb =
-window.supabase.createClient(
- SUPABASE_URL,
- SUPABASE_KEY
-);
+let token="";
 
-const $ = id => document.getElementById(id);
+let timer;
 
-function esc(v){
- return String(v ?? "")
-  .replace(/&/g,"&amp;")
-  .replace(/</g,"&lt;")
-  .replace(/>/g,"&gt;")
-  .replace(/"/g,"&quot;")
-  .replace(/'/g,"&#039;");
-}
-
-function money(v){
- return "$"+Number(v||0).toFixed(0);
-}
-
-function date(v){
- return v
-  ? new Date(v).toLocaleString(
-      "es-UY",
-      {dateStyle:"short",timeStyle:"short"}
-    )
-  : "";
-}
-
-async function currentUser(){
- const {data:{user}} =
-  await sb.auth.getUser();
-
- return user;
-}
 
 async function login(){
 
- $("loginError").classList.add("hidden");
+const e=document.getElementById("email").value.trim();
 
- const email =
-  $("email").value.trim();
+const p=document.getElementById("pass").value;
 
- const password =
-  $("password").value;
+const error=document.getElementById("error");
 
- if(!email || !password){
-  $("loginError").textContent =
-   "Completá correo y contraseña.";
+error.textContent="Ingresando...";
 
-  $("loginError").classList.remove("hidden");
-  return;
- }
+try{
 
- $("login").disabled = true;
+const r=await fetch(
+URL+"/auth/v1/token?grant_type=password",
+{
+method:"POST",
+headers:{
+"apikey":KEY,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+email:e,
+password:p
+})
+}
+);
 
- const {error} =
-  await sb.auth.signInWithPassword({
-   email,
-   password
-  });
+const d=await r.json();
 
- $("login").disabled = false;
+if(!r.ok){
 
- if(error){
-  $("loginError").textContent =
-   error.message;
+error.textContent=
+d.error_description||
+d.msg||
+"Correo o contraseña incorrectos";
 
-  $("loginError").classList.remove("hidden");
-  return;
- }
-
- await start();
+return;
 }
 
-async function start(){
+if(!d.user || d.user.id!==ADMIN){
 
- const user =
-  await currentUser();
+error.textContent="Este usuario no es administrador";
 
- if(!user){
-
-  $("loginCard").classList.remove("hidden");
-  $("app").classList.add("hidden");
-  $("logout").classList.add("hidden");
-
-  return;
- }
-
- if(user.id !== ADMIN_UUID){
-
-  await sb.auth.signOut();
-
-  $("loginError").textContent =
-   "Este usuario no tiene acceso al panel de la cadetería.";
-
-  $("loginError").classList.remove("hidden");
-
-  return;
- }
-
- $("loginCard").classList.add("hidden");
- $("app").classList.remove("hidden");
- $("logout").classList.remove("hidden");
-
- await loadOrders();
+return;
 }
 
-async function loadOrders(){
+token=d.access_token;
 
- $("count").textContent =
-  "Actualizando…";
+document.getElementById("login").className="oculto";
 
- $("orders").innerHTML = "";
+document.getElementById("panel").className="";
 
- const {data,error} =
-  await sb
-   .from("pedidos")
-   .select("*")
-   .order("created_at",{ascending:false});
+error.textContent="";
 
- if(error){
+cargar();
 
-  $("count").textContent = "";
+timer=setInterval(cargar,15000);
 
-  $("message").innerHTML =
-   '<div class="error"><b>No se pudieron cargar los pedidos.</b><br>'+
-   esc(error.message)+
-   '</div>';
+}catch(e){
 
-  return;
- }
+error.textContent="Error de conexión";
 
- $("message").innerHTML = "";
-
- $("count").textContent =
-  data.length+" pedido(s)";
-
- if(!data.length){
-
-  $("orders").innerHTML =
-   '<div class="card empty">📭 Todavía no hay pedidos.</div>';
-
-  return;
- }
-
- const rank = {
-  pendiente:0,
-  aceptado:1,
-  "en camino":2,
-  entregado:3,
-  cancelado:4
- };
-
- data.sort((a,b)=>{
-
-  const ra =
-   rank[String(a.estado||"pendiente")] ?? 0;
-
-  const rb =
-   rank[String(b.estado||"pendiente")] ?? 0;
-
-  if(ra !== rb)
-   return ra-rb;
-
-  return new Date(b.created_at)-new Date(a.created_at);
- });
-
- data.forEach(renderOrder);
 }
 
-function renderOrder(o){
+}
 
- const div =
-  document.createElement("div");
 
- const estado =
-  String(o.estado||"pendiente");
+async function cargar(){
 
- const esNuevo =
-  estado === "pendiente";
-
- div.className =
-  "card order"+
-  (o.urgente ? " urgent":"")+
-  (esNuevo ? " new":"");
-
- const lat = Number(o.latitud);
- const lon = Number(o.longitud);
-
- div.innerHTML = `
-
-  ${esNuevo ? `
-   <div class="new-banner">
-    🆕 NUEVO PEDIDO
-   </div>
-  ` : ""}
-
-  <div class="top">
-
-   <div>
-    <h2>📦 Pedido #${esc(o.id)}</h2>
-    <div class="meta">
-     ${esc(date(o.created_at))}
-    </div>
-   </div>
-
-   ${
-    o.urgente
-    ? '<span class="badge urgent">🚨 URGENTE</span>'
-    : '<span class="badge">NORMAL</span>'
-   }
-
-  </div>
-
-  <div class="info">
-   <b>👤 Cliente:</b>
-   ${esc(o.cliente)}
-  </div>
-
-  <div class="info">
-   <b>📞 Teléfono:</b>
-   ${esc(o.telefono)}
-  </div>
-
-  <div class="info">
-   <b>📍 Entrega:</b><br>
-   ${esc(o.direccion)}
-  </div>
-
-  <div class="info">
-   <b>📏 Distancia:</b>
-   ${esc(o.distancia_km)} km
-  </div>
-
-  <div class="money">
-   ${money(o.precio_total)}
-  </div>
-
-  <div class="info">
-   <b>Estado:</b>
-
-   <select
-    class="status-select"
-    data-id="${esc(o.id)}">
-
-    ${
-     [
-      "pendiente",
-      "aceptado",
-      "en camino",
-      "entregado
+const r=await fetch(
+URL+"/rest/v1/pedidos?select=*&order=created_at
