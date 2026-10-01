@@ -76,9 +76,22 @@ const zones = [
 ];
 let origin = null, destination = null, basePrice = 0;
 
-const map = L.map('map').setView(FALLBACK, 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);
-let circles=[], originMarker, destMarker;
+const map = L.map('map', {
+  center: FALLBACK,
+  zoom: 13
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+setTimeout(() => {
+  map.invalidateSize();
+}, 500);
+
+window.addEventListener('resize', () => {
+  map.invalidateSize();
+});
 
 function drawZones(){
   circles.forEach(c=>map.removeLayer(c)); circles=[];
