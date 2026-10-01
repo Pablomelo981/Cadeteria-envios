@@ -5,18 +5,27 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Calculador de envíos</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
 
 <style>
+
 :root{
   --bg:#f4f6f8;
   --card:#fff;
   --text:#17202a;
   --muted:#667085;
   --accent:#111827;
+  --blue:#4285f4;
+  --green:#067647;
+  --red:#b42318;
 }
 
-*{box-sizing:border-box}
+*{
+  box-sizing:border-box;
+}
 
 body{
   margin:0;
@@ -60,7 +69,9 @@ label{
   margin:10px 0 6px;
 }
 
-input,button,textarea{
+input,
+button,
+textarea{
   width:100%;
   padding:13px;
   border:1px solid #d0d5dd;
@@ -79,6 +90,24 @@ button{
 
 button:disabled{
   opacity:.55;
+}
+
+.secondary{
+  background:var(--blue);
+}
+
+.success{
+  background:var(--green);
+}
+
+.danger{
+  background:var(--red);
+}
+
+.light-button{
+  background:#eef2f6;
+  color:#17202a;
+  border:1px solid #d0d5dd;
 }
 
 .result{
@@ -103,7 +132,7 @@ button:disabled{
 }
 
 #map{
-  height:400px;
+  height:420px;
   width:100%;
   border-radius:14px;
   margin-top:12px;
@@ -117,24 +146,48 @@ button:disabled{
   border-bottom:1px solid #eee;
 }
 
-.secondary{
-  background:#4285f4;
-}
-
-.success{
-  background:#067647;
-}
-
-.danger{
-  background:#b42318;
-}
-
 .point-help{
   background:#eef4ff;
   border-radius:12px;
   padding:12px;
   margin-top:10px;
   font-size:14px;
+}
+
+.search-results{
+  margin-top:8px;
+}
+
+.search-option{
+  background:#f8fafc;
+  color:#17202a;
+  border:1px solid #d0d5dd;
+  text-align:left;
+  margin-top:7px;
+  font-weight:500;
+}
+
+.location-box{
+  background:#f6fef9;
+  border:1px solid #b7ebcd;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+}
+
+.marker-help{
+  background:#fff8e7;
+  border:1px solid #f2d38a;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+  font-size:14px;
+}
+
+hr{
+  border:0;
+  border-top:1px solid #eee;
+  margin:18px 0;
 }
 
 </style>
@@ -146,18 +199,74 @@ button:disabled{
 
   <div class="brand">
     <h1>🚚 Calculá tu envío</h1>
-    <p>Ingresá las dos calles de la esquina y calculá el precio.</p>
+    <p>Indicá dónde estás y dónde querés recibir el envío.</p>
   </div>
 
 
   <!-- =========================
-       DIRECCIÓN
+       ORIGEN / CLIENTE
   ========================== -->
 
   <div class="card">
 
     <h3 style="margin-top:0">
-      📍 Dirección de entrega
+      📍 ¿Dónde estás?
+    </h3>
+
+    <button
+      id="useLocation"
+      type="button"
+      class="success"
+    >
+      📍 Usar mi ubicación actual
+    </button>
+
+    <label for="originSearch">
+      Buscar mi ubicación
+    </label>
+
+    <input
+      id="originSearch"
+      placeholder="Ej.: Av. Italia y Comercio"
+      autocomplete="street-address"
+    >
+
+    <button
+      id="searchOrigin"
+      type="button"
+      class="light-button"
+    >
+      🔎 Buscar ubicación
+    </button>
+
+    <div
+      id="originResults"
+      class="search-results"
+    ></div>
+
+    <div
+      id="originStatus"
+      class="small"
+      style="margin-top:10px"
+    ></div>
+
+    <div class="location-box">
+      <b>💡 Podés mover el marcador</b><br>
+      Después de encontrar tu ubicación, arrastrá el marcador
+      hasta la esquina o puerta exacta.
+    </div>
+
+  </div>
+
+
+  <!-- =========================
+       DESTINO
+  ========================== -->
+
+  <div class="card">
+
+    <h3 style="margin-top:0">
+      📦 Dirección de entrega
     </h3>
 
     <label for="calle">
@@ -170,1124 +279,10 @@ button:disabled{
       autocomplete="street-address"
     >
 
-
     <label for="esquina">
       Esquina / segunda calle
     </label>
 
     <input
       id="esquina"
-      placeholder="Ej.: Comercio"
-      autocomplete="street-address"
-    >
-
-
-    <div class="point-help">
-      Ejemplo: <b>Av. Italia</b> y <b>Comercio</b>
-    </div>
-
-
-    <button id="calc">
-      📍 Buscar esquina y calcular precio
-    </button>
-
-
-    <div
-      id="status"
-      class="small"
-      style="margin-top:10px"
-    ></div>
-
-  </div>
-
-
-  <!-- =========================
-       RESULTADO
-  ========================== -->
-
-  <div id="result" class="card result">
-
-    <div
-      class="zone"
-      id="zone"
-    ></div>
-
-
-    <div
-      class="price"
-      id="price"
-    ></div>
-
-
-    <div id="distance"></div>
-
-
-    <div
-      id="detail"
-      class="small"
-    ></div>
-
-
-    <button
-      id="googleMapsBtn"
-      type="button"
-      class="secondary"
-    >
-      🗺️ Ir con Google Maps
-    </button>
-
-  </div>
-
-
-  <!-- =========================
-       TARIFAS
-  ========================== -->
-
-  <div class="card">
-
-    <h3 style="margin-top:0">
-      Tarifas
-    </h3>
-
-    <div class="legend">
-
-      <div>
-        <span>Zona 1 · hasta 2 km</span>
-        <b>$200</b>
-      </div>
-
-      <div>
-        <span>Zona 2 · 2 a 4 km</span>
-        <b>$250</b>
-      </div>
-
-      <div>
-        <span>Zona 3 · 4 a 6 km</span>
-        <b>$300</b>
-      </div>
-
-      <div>
-        <span>Zona 4 · 6 a 8 km</span>
-        <b>$350</b>
-      </div>
-
-      <div>
-        <span>Más de 8 km</span>
-        <b>$400 + $35/km</b>
-      </div>
-
-    </div>
-
-  </div>
-
-
-  <!-- =========================
-       EXTRAS
-  ========================== -->
-
-  <div class="card">
-
-    <h3 style="margin-top:0">
-      Extras
-    </h3>
-
-    <label>
-      <input
-        type="checkbox"
-        id="urgent"
-        style="width:auto"
-      >
-      Urgente $50+
-    </label>
-
-
-    <button
-      id="recalc"
-      type="button"
-    >
-      Actualizar total
-    </button>
-
-  </div>
-
-
-  <!-- =========================
-       MAPA
-  ========================== -->
-
-  <div id="map"></div>
-
-
-  <div class="card small">
-
-    <b>Punto de partida:</b>
-    esquina de Camino Teniente Rinaldi y Av. San Martín, Montevideo.
-
-    <br><br>
-
-    <b>Mapa de zonas:</b>
-    los círculos muestran los radios de 2, 4, 6 y 8 km desde el punto de partida.
-
-    <br><br>
-
-    La distancia utilizada para determinar la zona es en línea recta.
-
-  </div>
-
-
-  <!-- =========================
-       MIS ENVÍOS
-  ========================== -->
-
-  <div
-    id="mis-envios"
-    class="card"
-  >
-
-    <h2>📦 Mis envíos</h2>
-
-
-    <input
-      id="cliente"
-      type="text"
-      placeholder="Nombre del cliente"
-    >
-
-
-    <input
-      id="telefono"
-      type="tel"
-      placeholder="Teléfono"
-      style="margin-top:8px"
-    >
-
-
-    <input
-      id="direccion"
-      type="text"
-      placeholder="Dirección"
-      style="margin-top:8px"
-    >
-
-
-    <input
-      id="zona"
-      type="text"
-      placeholder="Zona"
-      readonly
-      style="
-        margin-top:8px;
-        background:#eee;
-      "
-    >
-
-
-    <input
-      id="precio"
-      type="number"
-      placeholder="Precio del envío"
-      style="margin-top:8px"
-    >
-
-
-    <textarea
-      id="observaciones"
-      placeholder="Observaciones"
-      style="margin-top:8px"
-    ></textarea>
-
-
-    <button
-      onclick="guardarEnvio()"
-    >
-      💾 Guardar envío
-    </button>
-
-
-    <div
-      id="lista-envios"
-      style="margin-top:20px"
-    ></div>
-
-  </div>
-
-</div>
-
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-
-<script>
-
-/* =========================
-   CONFIGURACIÓN
-========================= */
-
-const ORIGIN_QUERY =
-  "Camino Teniente Rinaldi 5365 esquina Av. San Martin, Montevideo, Uruguay";
-
-const FALLBACK =
-  [-34.8245,-56.1650];
-
-
-let origin = null;
-let destination = null;
-let basePrice = 0;
-
-let circles = [];
-let originMarker = null;
-let destMarker = null;
-
-let currentDestinationName = "";
-
-
-/* =========================
-   MAPA
-========================= */
-
-const map = L.map("map",{
-  center:FALLBACK,
-  zoom:13,
-  zoomControl:true
-});
-
-
-L.tileLayer(
-  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {
-    maxZoom:19,
-    attribution:"© OpenStreetMap contributors"
-  }
-).addTo(map);
-
-
-/* =========================
-   ZONAS
-========================= */
-
-function drawZones(){
-
-  circles.forEach(function(circle){
-    map.removeLayer(circle);
-  });
-
-  circles = [];
-
-
-  const zoneData = [
-
-    {
-      radius:8000,
-      color:"#ef4444"
-    },
-
-    {
-      radius:6000,
-      color:"#f97316"
-    },
-
-    {
-      radius:4000,
-      color:"#eab308"
-    },
-
-    {
-      radius:2000,
-      color:"#22c55e"
-    }
-
-  ];
-
-
-  zoneData.forEach(function(zone){
-
-    const circle =
-      L.circle(
-        origin,
-        {
-          radius:zone.radius,
-          color:zone.color,
-          fillColor:zone.color,
-          fillOpacity:0.16,
-          weight:3
-        }
-      ).addTo(map);
-
-    circles.push(circle);
-
-  });
-
-
-  if(originMarker){
-    map.removeLayer(originMarker);
-  }
-
-
-  originMarker =
-    L.marker(origin)
-      .addTo(map)
-      .bindPopup(
-        "<b>Punto de partida</b><br>" +
-        "Camino Teniente Rinaldi y Av. San Martín"
-      );
-
-}
-
-
-/* =========================
-   DISTANCIA
-========================= */
-
-function haversine(a,b){
-
-  const R = 6371;
-  const p = Math.PI / 180;
-
-  const dLat =
-    (b[0] - a[0]) * p;
-
-  const dLon =
-    (b[1] - a[1]) * p;
-
-  const x =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a[0] * p) *
-    Math.cos(b[0] * p) *
-    Math.sin(dLon / 2) ** 2;
-
-  return (
-    2 *
-    R *
-    Math.asin(Math.sqrt(x))
-  );
-
-}
-
-
-/* =========================
-   BUSCAR DIRECCIÓN
-========================= */
-
-async function geocode(q){
-
-  const url =
-    "https://nominatim.openstreetmap.org/search" +
-    "?format=jsonv2" +
-    "&limit=1" +
-    "&countrycodes=uy" +
-    "&q=" +
-    encodeURIComponent(q);
-
-
-  const response =
-    await fetch(url);
-
-
-  if(!response.ok){
-    throw new Error(
-      "No se pudo consultar el mapa."
-    );
-  }
-
-
-  const data =
-    await response.json();
-
-
-  if(!data.length){
-    throw new Error(
-      "No encontré esa esquina. Probá con los nombres completos de las calles."
-    );
-  }
-
-
-  return {
-    lat:parseFloat(data[0].lat),
-    lon:parseFloat(data[0].lon),
-    display:data[0].display_name
-  };
-
-}
-
-
-/* =========================
-   PRECIO
-========================= */
-
-function getBasePrice(km){
-
-  if(km <= 2){
-    return ["Zona 1",200];
-  }
-
-  if(km <= 4){
-    return ["Zona 2",250];
-  }
-
-  if(km <= 6){
-    return ["Zona 3",300];
-  }
-
-  if(km <= 8){
-    return ["Zona 4",350];
-  }
-
-
-  return [
-    "Fuera de zona",
-    400 + Math.ceil(km - 8) * 35
-  ];
-
-}
-
-
-/* =========================
-   EXTRAS
-========================= */
-
-function extras(){
-
-  if(
-    document.getElementById("urgent").checked
-  ){
-    return 50;
-  }
-
-  return 0;
-
-}
-
-
-/* =========================
-   GOOGLE MAPS
-========================= */
-
-function abrirGoogleMaps(direccion){
-
-  if(!direccion){
-    alert(
-      "No hay una dirección para abrir en Google Maps."
-    );
-    return;
-  }
-
-
-  const url =
-    "https://www.google.com/maps/dir/?api=1" +
-    "&destination=" +
-    encodeURIComponent(direccion) +
-    "&travelmode=driving";
-
-
-  window.location.href = url;
-
-}
-
-
-/* =========================
-   MOSTRAR RESULTADO
-========================= */
-
-function showResult(km){
-
-  const result =
-    getBasePrice(km);
-
-  const name =
-    result[0];
-
-  const price =
-    result[1];
-
-
-  basePrice = price;
-
-
-  document.getElementById("zona").value =
-    name;
-
-  document.getElementById("precio").value =
-    price;
-
-
-  const total =
-    price + extras();
-
-
-  document.getElementById("zone")
-    .textContent = name;
-
-
-  document.getElementById("price")
-    .textContent =
-      "$" + total;
-
-
-  document.getElementById("distance")
-    .textContent =
-      "Distancia aproximada: " +
-      km.toFixed(1) +
-      " km";
-
-
-  document.getElementById("detail")
-    .textContent =
-      total !== price
-      ? "Base $" + price +
-        " + urgente $" +
-        (total - price)
-      : "Precio base de envío";
-
-
-  document.getElementById("result")
-    .style.display =
-      "block";
-
-}
-
-
-/* =========================
-   BOTÓN GOOGLE MAPS
-========================= */
-
-document.getElementById(
-  "googleMapsBtn"
-).onclick = function(){
-
-  abrirGoogleMaps(
-    currentDestinationName
-  );
-
-};
-
-
-/* =========================
-   CONSULTAR ESQUINA
-========================= */
-
-document.getElementById("calc")
-.onclick = async function(){
-
-  const calle =
-    document.getElementById("calle")
-      .value
-      .trim();
-
-  const esquina =
-    document.getElementById("esquina")
-      .value
-      .trim();
-
-  const status =
-    document.getElementById("status");
-
-  const button =
-    document.getElementById("calc");
-
-
-  if(!calle || !esquina){
-
-    status.textContent =
-      "Ingresá las dos calles de la esquina.";
-
-    return;
-
-  }
-
-
-  /*
-    Agregamos Montevideo para ayudar
-    al buscador a encontrar la esquina.
-  */
-
-  const consulta =
-    calle +
-    " y " +
-    esquina +
-    ", Montevideo, Uruguay";
-
-
-  button.disabled = true;
-
-  status.textContent =
-    "Buscando la esquina…";
-
-
-  try{
-
-    const lugar =
-      await geocode(consulta);
-
-
-    destination =
-      [
-        lugar.lat,
-        lugar.lon
-      ];
-
-
-    currentDestinationName =
-      lugar.display;
-
-
-    if(destMarker){
-
-      map.removeLayer(
-        destMarker
-      );
-
-    }
-
-
-    destMarker =
-      L.marker(destination)
-        .addTo(map)
-        .bindPopup(
-          "<b>Entrega</b><br>" +
-          calle +
-          " y " +
-          esquina
-        )
-        .openPopup();
-
-
-    const km =
-      haversine(
-        origin,
-        destination
-      );
-
-
-    showResult(km);
-
-
-    /*
-      Guardar la dirección completa
-      en Mis envíos.
-    */
-
-    document.getElementById(
-      "direccion"
-    ).value =
-      calle +
-      " y " +
-      esquina;
-
-
-    /*
-      Mostrar origen y destino.
-    */
-
-    const bounds =
-      L.latLngBounds(
-        [
-          origin,
-          destination
-        ]
-      );
-
-
-    map.fitBounds(
-      bounds,
-      {
-        padding:[40,40]
-      }
-    );
-
-
-    status.innerHTML =
-      '<span style="color:#067647">' +
-      "Esquina encontrada: " +
-      calle +
-      " y " +
-      esquina +
-      "</span>";
-
-
-  }catch(error){
-
-    status.textContent =
-      error.message;
-
-  }finally{
-
-    button.disabled = false;
-
-  }
-
-};
-
-
-/* =========================
-   ACTUALIZAR TOTAL
-========================= */
-
-document.getElementById("recalc")
-.onclick = function(){
-
-  if(destination){
-
-    const km =
-      haversine(
-        origin,
-        destination
-      );
-
-
-    showResult(km);
-
-  }
-
-};
-
-
-/* =========================
-   INICIAR
-========================= */
-
-async function init(){
-
-  try{
-
-    const lugar =
-      await geocode(
-        ORIGIN_QUERY
-      );
-
-
-    origin =
-      [
-        lugar.lat,
-        lugar.lon
-      ];
-
-  }catch(error){
-
-    origin =
-      FALLBACK;
-
-  }
-
-
-  drawZones();
-
-
-  map.setView(
-    origin,
-    12
-  );
-
-
-  setTimeout(function(){
-
-    map.invalidateSize();
-
-  },500);
-
-}
-
-
-init();
-
-
-/* =========================
-   MIS ENVÍOS
-========================= */
-
-let envios =
-  JSON.parse(
-    localStorage.getItem("misEnvios")
-  ) || [];
-
-
-function guardarEnvio(){
-
-  const envio = {
-
-    id:Date.now(),
-
-    cliente:
-      document.getElementById(
-        "cliente"
-      ).value,
-
-    telefono:
-      document.getElementById(
-        "telefono"
-      ).value,
-
-    direccion:
-      document.getElementById(
-        "direccion"
-      ).value,
-
-    zona:
-      document.getElementById(
-        "zona"
-      ).value,
-
-    precio:
-      document.getElementById(
-        "precio"
-      ).value,
-
-    observaciones:
-      document.getElementById(
-        "observaciones"
-      ).value,
-
-    entregado:false
-
-  };
-
-
-  if(!envio.direccion){
-
-    alert(
-      "Primero ingresá una dirección."
-    );
-
-    return;
-
-  }
-
-
-  envios.push(envio);
-
-
-  localStorage.setItem(
-    "misEnvios",
-    JSON.stringify(envios)
-  );
-
-
-  document.getElementById("cliente").value="";
-  document.getElementById("telefono").value="";
-  document.getElementById("direccion").value="";
-  document.getElementById("zona").value="";
-  document.getElementById("precio").value="";
-  document.getElementById("observaciones").value="";
-
-
-  mostrarEnvios();
-
-}
-
-
-/* =========================
-   GOOGLE MAPS DESDE ENVÍOS
-========================= */
-
-function abrirEnvioEnGoogleMaps(id){
-
-  const envio =
-    envios.find(function(e){
-      return e.id === id;
-    });
-
-
-  if(
-    !envio ||
-    !envio.direccion
-  ){
-
-    alert(
-      "Este envío no tiene dirección."
-    );
-
-    return;
-
-  }
-
-
-  abrirGoogleMaps(
-    envio.direccion +
-    ", Montevideo, Uruguay"
-  );
-
-}
-
-
-/* =========================
-   MOSTRAR ENVÍOS
-========================= */
-
-function mostrarEnvios(){
-
-  const lista =
-    document.getElementById(
-      "lista-envios"
-    );
-
-
-  if(envios.length === 0){
-
-    lista.innerHTML =
-      "<p>No tenés envíos guardados.</p>";
-
-    return;
-
-  }
-
-
-  lista.innerHTML =
-    envios.map(function(envio){
-
-      return `
-
-        <div
-          style="
-            background:white;
-            padding:15px;
-            margin:10px 0;
-            border-radius:12px;
-          "
-        >
-
-          <strong>
-            ${envio.cliente || "Sin nombre"}
-          </strong>
-
-          <br><br>
-
-          📍 ${envio.direccion}
-
-          <br>
-
-          🗺️ Zona:
-          ${envio.zona || "Sin zona"}
-
-          <br>
-
-          💰 $${envio.precio || "0"}
-
-          <br>
-
-          📞 ${envio.telefono || "Sin teléfono"}
-
-          <br>
-
-          ${
-            envio.observaciones
-              ? "📝 " +
-                envio.observaciones +
-                "<br>"
-              : ""
-          }
-
-
-          <button
-            onclick="
-              abrirEnvioEnGoogleMaps(
-                ${envio.id}
-              )
-            "
-            class="secondary"
-          >
-            🗺️ Ir con Google Maps
-          </button>
-
-
-          <button
-            onclick="
-              marcarEntregado(
-                ${envio.id}
-              )
-            "
-          >
-            ${
-              envio.entregado
-                ? "✅ Entregado"
-                : "☐ Marcar entregado"
-            }
-          </button>
-
-
-          <button
-            onclick="
-              eliminarEnvio(
-                ${envio.id}
-              )
-            "
-            class="danger"
-          >
-            🗑️ Eliminar
-          </button>
-
-        </div>
-
-      `;
-
-    }).join("");
-
-}
-
-
-/* =========================
-   ENTREGADO
-========================= */
-
-function marcarEntregado(id){
-
-  const envio =
-    envios.find(function(e){
-      return e.id === id;
-    });
-
-
-  if(envio){
-
-    envio.entregado =
-      !envio.entregado;
-
-
-    localStorage.setItem(
-      "misEnvios",
-      JSON.stringify(envios)
-    );
-
-
-    mostrarEnvios();
-
-  }
-
-}
-
-
-/* =========================
-   ELIMINAR
-========================= */
-
-function eliminarEnvio(id){
-
-  if(
-    confirm(
-      "¿Querés eliminar este envío?"
-    )
-  ){
-
-    envios =
-      envios.filter(function(e){
-        return e.id !== id;
-      });
-
-
-    localStorage.setItem(
-      "misEnvios",
-      JSON.stringify(envios)
-    );
-
-
-    mostrarEnvios();
-
-  }
-
-}
-
-
-mostrarEnvios();
-
-</script>
-
-</body>
-</html>
+      placeholder="
