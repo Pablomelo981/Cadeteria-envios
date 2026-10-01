@@ -1,0 +1,15 @@
+{
+  "name": "Cadetería - Pedidos",
+  "short_name": "Cadetería",
+  "start_url": "./app.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f4f7",
+  "theme_color": "#067647",
+  "lang": "es-UY",
+  "description": "Aplicación para recibir y administrar pedidos de cadetería.",
+  "icons": [
+    {"src":"./icon-192.png","sizes":"192x192","type":"image/png"},
+    {"src":"./icon-512.png","sizes":"512x512","type":"image/png"}
+  ]
+}
