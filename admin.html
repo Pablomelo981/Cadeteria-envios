@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Administración - Cadetería</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--text:#17202a;--muted:#667085;--green:#067647;--red:#b42318;--blue:#2563eb}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:900px;margin:auto;padding:16px}
+.card{background:#fff;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 4px 18px #00000010}
+h1,h2{margin-top:0}
+label{display:block;font-weight:700;margin:10px 0 6px}
+input,button{width:100%;padding:13px;border-radius:12px;border:1px solid #d0d5dd;font-size:16px}
+button{border:0;background:#111827;color:white;font-weight:700;margin-top:10px}
+button:disabled{opacity:.55}
+.green{background:var(--green)}
+.blue{background:var(--blue)}
+.logout{background:#6b7280}
+.hidden{display:none!important}
+.error{background:#fff1f0;color:var(--red);border:1px solid #f4b4af;padding:12px;border-radius:12px;margin-top:10px;word-break:break-word}
+.ok{background:#ecfdf3;color:var(--green);border:1px solid #abefc6;padding:12px;border-radius:12px;margin-top:10px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.top button{width:auto;margin:0;padding:10px 14px}
+.order{border:1px solid #e4e7ec;border-radius:15px;padding:15px;margin-top:12px}
+.row{margin:7px 0}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800;background:#eef2ff}
+.badge.urgent{background:#fff0e6;color:#c4320a}
+.map{height:260px;border-radius:12px;margin-top:12px}
+.small{font-size:13px;color:var(--muted)}
+.empty{text-align:center;padding:30px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div id="loginCard" class="card">
+  <h1>🔐 Administración</h1>
+  <p class="small">Ingresá con el usuario administrador de la cadetería.</p>
+
+  <label for="email">Correo electrónico</label>
+  <input id="email" type="email" placeholder="Correo del administrador" autocomplete="username">
+
+  <label for="password">Contraseña</label>
+  <input id="password" type="password" placeholder="Contraseña" autocomplete="current-password">
+
+  <button id="login" class="green">🔐 Ingresar</button>
+  <div id="loginError" class="error hidden"></div>
+</div>
+
+<div id="adminApp" class="hidden">
+  <div class="card">
+    <div class="top">
+      <div>
+        <h1>📦 Pedidos recibidos</h1>
+        <div id="sessionInfo" class="small"></div>
+      </div>
+      <button id="logout" class="logout">Salir</button>
+    </div>
+
+    <button id="refresh" class="blue">🔄 Actualizar pedidos</button>
+    <div id="loadStatus" class="small" style="margin-top:10px"></div>
+  </div>
+
+  <div id="orders"></div>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const SUPABASE_URL="https://umqbrzgbsfzeggnyhfcu.supabase.co";
+const SUPABASE_KEY="sb_publishable_WIcZQ2owPoPYs5edb51j-g_mLvI0VTX";
+
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+const loginCard=document.getElementById("loginCard");
+const adminApp=document.getElementById("adminApp");
+const loginError=document.getElementById("loginError");
+const loadStatus=document.getElementById("loadStatus");
+const orders=document.getElementById("orders");
+
+function escapeHtml(t){
+  return String(t??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+
+function money(v){
+  return "$"+Number(v||0).toFixed(0);
+}
+
+function formatDate(v){
+  if(!v)return "";
+  return new Date(v).toLocaleString("es-UY",{
+    dateStyle:"short",
+    timeStyle:"short"
+  });
+}
+
+function showLoginError(msg){
+  loginError.textContent=msg;
+  loginError.classList.remove("hidden");
+}
+
+async function login(){
+  loginError.classList.add("hidden");
+
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value;
+
+  if(!email||!password){
+    showLoginError("Ingresá el correo y la contraseña.");
+    return;
+  }
+
+  const btn=document.getElementById("login");
+  btn.disabled=true;
+  btn.textContent="Ingresando…";
+
+  const {error}=await sb.auth.signInWithPassword({email,password});
+
+  btn.disabled=false;
+  btn.textContent="🔐 Ingresar";
+
+  if(error){
+    showLoginError(error.message);
+    return;
+  }
+
+  await showAdmin();
+}
+
+async function showAdmin(){
+  const {data:{user}}=await sb.auth.getUser();
+
+  if(!user){
+    loginCard.classList.remove("hidden");
+    adminApp.classList.add("hidden");
+    return;
+  }
+
+  loginCard.classList.add("hidden");
+  adminApp.classList.remove("hidden");
+  document.getElementById("sessionInfo").textContent="Sesión iniciada: "+user.email;
+
+  await loadOrders();
+}
+
+async function loadOrders(){
+  orders.innerHTML="";
+  loadStatus.textContent="Cargando pedidos…";
+
+  const {data,error}=await sb
+    .from("pedidos")
+    .select("*")
+    .order("created_at",{ascending:false});
+
+  if(error){
+    loadStatus.textContent="";
+    orders.innerHTML='<div class="card error"><b>No se pudieron cargar los pedidos.</b><br><br>'+
+      escapeHtml(error.message)+'</div>';
+    return;
+  }
+
+  loadStatus.textContent=data.length+" pedido(s) encontrado(s).";
+
+  if(!data.length){
+    orders.innerHTML='<div class="card empty">📭 Todavía no hay pedidos.</div>';
+    return;
+  }
+
+  data.forEach(order=>{
+    const div=document.createElement("div");
+    div.className="card order";
+
+    const urgent=order.urgente
+      ? '<span class="badge urgent">🚨 URGENTE</span>'
+      : '<span class="badge">NORMAL</span>';
+
+    const lat=Number(order.latitud);
+    const lon=Number(order.longitud);
+
+    div.innerHTML=`
+      <h2>📦 Pedido #${escapeHtml(order.id)}</h2>
+      <div class="small">${escapeHtml(formatDate(order.created_at))}</div>
+      <div class="row"><b>👤 Cliente:</b> ${escapeHtml(order.cliente)}</div>
+      <div class="row"><b>📞 Teléfono:</b> ${escapeHtml(order.telefono)}</div>
+      <div class="row"><b>📍 Dirección:</b><br>${escapeHtml(order.direccion)}</div>
+      <div class="row"><b>📏 Distancia:</b> ${escapeHtml(order.distancia_km)} km</div>
+      <div class="row"><b>💰 Total:</b> ${money(order.precio_total)}</div>
+      <div class="row"><b>🚚 Tipo:</b> ${urgent}</div>
+      <div class="row"><b>📌 Estado:</b> ${escapeHtml(order.estado||"pendiente")}</div>
+      ${order.observaciones?'<div class="row"><b>📝 Observaciones:</b><br>'+escapeHtml(order.observaciones)+'</div>':''}
+      <div id="map-${order.id}" class="map"></div>
+      <button class="blue" onclick="openMaps(${lat},${lon})">🗺️ Abrir ubicación</button>
+    `;
+
+    orders.appendChild(div);
+
+    if(Number.isFinite(lat)&&Number.isFinite(lon)){
+      const m=L.map("map-"+order.id,{zoomControl:true}).setView([lat,lon],16);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+        maxZoom:19,
+        attribution:"© OpenStreetMap contributors"
+      }).addTo(m);
+      L.marker([lat,lon]).addTo(m).bindPopup("📍 Entrega").openPopup();
+    }
+  });
+}
+
+function openMaps(lat,lon){
+  window.open(
+    "https://www.google.com/maps/search/?api=1&query="+
+    encodeURIComponent(lat+","+lon),
+    "_blank"
+  );
+}
+
+document.getElementById("login").onclick=login;
+document.getElementById("refresh").onclick=loadOrders;
+
+document.getElementById("logout").onclick=async()=>{
+  await sb.auth.signOut();
+  location.reload();
+};
+
+sb.auth.onAuthStateChange((event,session)=>{
+  if(session)showAdmin();
+});
+
+showAdmin();
+</script>
+</body>
+</html>
