@@ -1,4 +1,4 @@
-const CACHE="cadeteria-v1";
+const CACHE="cadeteria-v2";
 const APP="./app.html";
 self.addEventListener("install",event=>{
   event.waitUntil(caches.open(CACHE).then(c=>c.addAll([APP,"./manifest.json"])));
