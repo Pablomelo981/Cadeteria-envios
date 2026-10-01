@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cadetería Envíos</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+:root{
+  --bg:#f4f6f8;
+  --card:#fff;
+  --text:#17202a;
+  --muted:#667085;
+  --accent:#111827;
+  --blue:#2563eb;
+  --green:#067647;
+  --purple:#7c3aed;
+  --orange:#ea580c;
+  --red:#b42318;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+.wrap{max-width:720px;margin:auto;padding:18px}
+.brand{text-align:center;padding:12px 0 8px}
+.brand h1{margin:0;font-size:30px}
+.brand p{margin:7px 0;color:var(--muted)}
+.card{
+  background:var(--card);
+  border-radius:18px;
+  padding:18px;
+  margin:14px 0;
+  box-shadow:0 4px 18px #00000010;
+}
+label{display:block;font-weight:700;margin:12px 0 6px}
+input,textarea,button{
+  width:100%;
+  padding:13px;
+  border:1px solid #d0d5dd;
+  border-radius:12px;
+  font-size:16px;
+}
+textarea{min-height:90px;resize:vertical}
+button{
+  border:0;
+  color:#fff;
+  background:var(--accent);
+  font-weight:700;
+  cursor:pointer;
+  margin-top:10px;
+}
+button:disabled{opacity:.55;cursor:not-allowed}
+.blue{background:var(--blue)}
+.green{background:var(--green)}
+.location{background:var(--purple)}
+.help{
+  background:#eef4ff;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+  font-size:14px;
+}
+.small{color:var(--muted);font-size:13px}
+.status{margin-top:10px;font-size:14px}
+#map{
+  width:100%;
+  height:420px;
+  border-radius:14px;
+  margin-top:12px;
+  overflow:hidden;
+}
+.result{display:none;text-align:center}
+.price{font-size:44px;font-weight:800;margin:5px}
+.zone{font-size:20px;font-weight:750}
+.urgent-box{
+  border:2px solid #fed7aa;
+  background:#fff7ed;
+  border-radius:14px;
+  padding:14px;
+  margin-top:14px;
+}
+.urgent-row{display:flex;align-items:center;gap:10px;font-weight:700}
+.urgent-row input{width:22px;height:22px}
+.success-message{display:none;text-align:center}
+.success-icon{font-size:55px}
+.price-final{font-size:38px;font-weight:800}
+.search-results{display:none;margin-top:10px}
+.search-result{
+  background:#f8fafc;
+  border:1px solid #d0d5dd;
+  border-radius:10px;
+  padding:11px;
+  margin-top:7px;
+  cursor:pointer;
+}
+.map-hint{
+  background:#ecfdf3;
+  border:1px solid #abefc6;
+  color:#067647;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+  font-size:14px;
+}
+.error-box{
+  display:none;
+  background:#fff1f0;
+  border:1px solid #f4b4af;
+  color:#8a1c13;
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+  font-size:13px;
+  word-break:break-word;
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <h1>🚚 Cadetería Envíos</h1>
+    <p>Solicitá tu envío de forma rápida y sencilla.</p>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">👤 Tus datos</h2>
+
+    <label for="cliente">Nombre</label>
+    <input id="cliente" type="text" placeholder="Tu nombre" autocomplete="name">
+
+    <label for="telefono">Teléfono</label>
+    <input id="telefono" type="tel" placeholder="Ej.: 099 123 456" autocomplete="tel">
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">📍 ¿Dónde hacemos la entrega?</h2>
+
+    <div class="help">
+      Podés escribir las calles, usar tu ubicación actual o tocar directamente el mapa.
+    </div>
+
+    <label for="calle">Primera calle</label>
+    <input id="calle" type="text" placeholder="Ej.: Av. Italia" autocomplete="street-address">
+
+    <label for="esquina">Esquina / segunda calle</label>
+    <input id="esquina" type="text" placeholder="Ej.: Comercio">
+
+    <button id="buscarDireccion" type="button" class="blue">
+      📍 Buscar dirección
+    </button>
+
+    <button id="usarUbicacion" type="button" class="location">
+      📱 Usar mi ubicación actual
+    </button>
+
+    <div class="map-hint">
+      🗺️ También podés <b>tocar directamente cualquier punto del mapa</b>.
+      El marcador aparecerá en el lugar elegido.
+    </div>
+
+    <div id="resultados" class="search-results"></div>
+    <div id="status" class="status small"></div>
+    <div id="map"></div>
+  </div>
+
+  <div id="resultadoPrecio" class="card result">
+    <div id="zona" class="zone"></div>
+    <div id="precio" class="price">$0</div>
+    <div id="distancia"></div>
+    <div id="detallePrecio" class="small"></div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">🚚 Tipo de envío</h2>
+
+    <div class="urgent-box">
+      <div class="urgent-row">
+        <input id="urgente" type="checkbox">
+        <label for="urgente" style="margin:0">
+          🚨 Necesito el envío urgente (+$50)
+        </label>
+      </div>
+
+      <div class="small" style="margin-top:8px">
+        Si no seleccionás esta opción, el pedido queda como envío normal.
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">📝 Información adicional</h2>
+    <label for="observaciones">Observaciones</label>
+    <textarea id="observaciones"
+      placeholder="Ej.: llamar al llegar, apartamento 302, dejar en recepción..."></textarea>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">📦 Confirmar pedido</h2>
+
+    <div id="resumen" class="help">
+      Primero seleccioná una ubicación para calcular el precio.
+    </div>
+
+    <button id="enviarPedido" type="button" class="green" disabled>
+      📦 Solicitar envío
+    </button>
+
+    <div id="enviando" class="status"></div>
+    <div id="errorEnvio" class="error-box"></div>
+  </div>
+
+  <div id="pedidoEnviado" class="card success-message">
+    <div class="success-icon">✅</div>
+    <h2>¡Pedido recibido!</h2>
+    <p>Tu solicitud fue enviada correctamente.</p>
+    <div id="precioFinal" class="price-final"></div>
+    <p class="small">
+      La cadetería ya recibió tu solicitud y podrá verla desde su sistema.
+    </p>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/* =====================================================
+   SUPABASE
+   ===================================================== */
+
+const SUPABASE_URL =
+  "https://umqbrzgbsfzeggnyhfcu.supabase.co";
+
+const SUPABASE_KEY =
+  "sb_publishable_WIcZQ2owPoPYs5edb51j-g_mLvI0VTX";
+
+const SUPABASE_REST =
+  SUPABASE_URL + "/rest/v1/pedidos";
+
+
+/* =====================================================
+   PUNTO DE PARTIDA DE LA CADETERÍA
+   ===================================================== */
+
+const ORIGIN_QUERY =
+  "Camino Teniente Rinaldi 5365 esquina Av. San Martin, Montevideo, Uruguay";
+
+const FALLBACK =
+  [-34.8245,-56.1650];
+
+let origin = null;
+let destination = null;
+let basePrice = 0;
+let currentDestinationName = "";
+let destinationMarker = null;
+let originMarker = null;
+
+
+/* =====================================================
+   MAPA
+   ===================================================== */
+
+const map = L.map("map",{
+  center:FALLBACK,
+  zoom:13,
+  zoomControl:true
+});
+
+L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom:19,
+    attribution:"© OpenStreetMap contributors"
+  }
+).addTo(map);
+
+
+/* =====================================================
+   DISTANCIA
+   ===================================================== */
+
+function haversine(a,b){
+  const R = 6371;
+  const p = Math.PI / 180;
+
+  const dLat = (b[0]-a[0]) * p;
+  const dLon = (b[1]-a[1]) * p;
+
+  const x =
+    Math.sin(dLat/2)**2 +
+    Math.cos(a[0]*p) *
+    Math.cos(b[0]*p) *
+    Math.sin(dLon/2)**2;
+
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+
+/* =====================================================
+   BUSCAR DIRECCIÓN
+   ===================================================== */
+
+async function geocode(q,limit=8){
+
+  const url =
+    "https://nominatim.openstreetmap.org/search" +
+    "?format=jsonv2" +
+    "&limit=" + limit +
+    "&countrycodes=uy" +
+    "&addressdetails=1" +
+    "&q=" + encodeURIComponent(q);
+
+  const response = await fetch(url);
+
+  if(!response.ok){
+    throw new Error("No se pudo consultar el mapa.");
+  }
+
+  const data = await response.json();
+
+  if(!data.length){
+    throw new Error("No encontré esa dirección.");
+  }
+
+  return data.map(function(item){
+    return {
+      lat:parseFloat(item.lat),
+      lon:parseFloat(item.lon),
+      display:item.display_name
+    };
+  });
+}
+
+
+/* =====================================================
+   DIRECCIÓN INVERSA
+   ===================================================== */
+
+async function reverseGeocode(lat,lon){
+
+  const url =
+    "https://nominatim.openstreetmap.org/reverse" +
+    "?format=jsonv2" +
+    "&lat=" + encodeURIComponent(lat) +
+    "&lon=" + encodeURIComponent(lon) +
+    "&zoom=18" +
+    "&addressdetails=1";
+
+  const response = await fetch(url);
+
+  if(!response.ok){
+    throw new Error("No se pudo obtener la dirección.");
+  }
+
+  const data = await response.json();
+
+  return data.display_name ||
+    (lat.toFixed(6) + "," + lon.toFixed(6));
+}
+
+
+/* =====================================================
+   TARIFAS
+   ===================================================== */
+
+function calcularPrecio(km){
+
+  if(km <= 2){
+    return {zona:"Zona 1",precio:200};
+  }
+
+  if(km <= 4){
+    return {zona:"Zona 2",precio:250};
+  }
+
+  if(km <= 6){
+    return {zona:"Zona 3",precio:300};
+  }
+
+  if(km <= 8){
+    return {zona:"Zona 4",precio:350};
+  }
+
+  return {
+    zona:"Fuera de zona",
+    precio:400 + Math.ceil(km-8) * 35
+  };
+}
+
+
+/* =====================================================
+   PRECIO FINAL
+   ===================================================== */
+
+function precioFinal(){
+
+  const urgente =
+    document.getElementById("urgente").checked;
+
+  return basePrice + (urgente ? 50 : 0);
+}
+
+
+/* =====================================================
+   ESCAPAR HTML
+   ===================================================== */
+
+function escapeHtml(text){
+
+  return String(text)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+}
+
+
+/* =====================================================
+   MOSTRAR PRECIO
+   ===================================================== */
+
+function mostrarPrecio(){
+
+  if(!origin || !destination){
+    return;
+  }
+
+  const km = haversine(origin,destination);
+  const resultado = calcularPrecio(km);
+
+  basePrice = resultado.precio;
+
+  const total = precioFinal();
+
+  document.getElementById("zona").textContent =
+    resultado.zona;
+
+  document.getElementById("precio").textContent =
+    "$" + total;
+
+  document.getElementById("distancia").textContent =
+    "Distancia aproximada: " + km.toFixed(1) + " km";
+
+  document.getElementById("detallePrecio").textContent =
+    document.getElementById("urgente").checked
+    ? "Precio base $" + basePrice + " + urgente $50"
+    : "Precio base de envío";
+
+  document.getElementById("resultadoPrecio").style.display =
+    "block";
+
+  document.getElementById("resumen").innerHTML =
+    "<b>📍 Entrega:</b><br>" +
+    escapeHtml(currentDestinationName) +
+    "<br><br>" +
+    "<b>💰 Total:</b> $" +
+    total +
+    "<br>" +
+    "<b>🚚 Tipo:</b> " +
+    (document.getElementById("urgente").checked
+      ? "URGENTE"
+      : "NORMAL");
+
+  document.getElementById("enviarPedido").disabled = false;
+}
+
+
+/* =====================================================
+   MARCADOR DE ORIGEN
+   ===================================================== */
+
+function mostrarOrigen(){
+
+  if(originMarker){
+    map.removeLayer(originMarker);
+  }
+
+  originMarker = L.marker(origin).addTo(map);
+
+  originMarker.bindPopup(
+    "<b>📍 Punto de partida</b>"
+  );
+}
+
+
+/* =====================================================
+   COLOCAR DESTINO
+   ===================================================== */
+
+function colocarDestino(lat,lon,nombre){
+
+  destination = [lat,lon];
+
+  currentDestinationName =
+    nombre ||
+    (lat.toFixed(6) + "," + lon.toFixed(6));
+
+  if(destinationMarker){
+    map.removeLayer(destinationMarker);
+  }
+
+  destinationMarker =
+    L.marker(destination,{
+      draggable:true
+    }).addTo(map);
+
+  destinationMarker.bindPopup(
+    "<b>📍 Entrega</b><br>Podés mover este punto."
+  ).openPopup();
+
+  destinationMarker.on("dragend",async function(){
+
+    const pos =
+      destinationMarker.getLatLng();
+
+    destination = [pos.lat,pos.lng];
+
+    document.getElementById("status").textContent =
+      "Actualizando dirección…";
+
+    try{
+      currentDestinationName =
+        await reverseGeocode(pos.lat,pos.lng);
+    }catch(error){
+      currentDestinationName =
+        pos.lat.toFixed(6) + "," + pos.lng.toFixed(6);
+    }
+
+    document.getElementById("status").innerHTML =
+      '<span style="color:#067647">📍 Ubicación seleccionada correctamente.</span>';
+
+    mostrarPrecio();
+  });
+
+  mostrarPrecio();
+}
+
+
+/* =====================================================
+   MOSTRAR RESULTADOS
+   ===================================================== */
+
+function mostrarResultados(resultados){
+
+  const box =
+    document.getElementById("resultados");
+
+  box.innerHTML = "";
+  box.style.display = "block";
+
+  resultados.forEach(function(lugar){
+
+    const item =
+      document.createElement("div");
+
+    item.className = "search-result";
+    item.textContent = lugar.display;
+
+    item.onclick = function(){
+
+      box.style.display = "none";
+
+      colocarDestino(
+        lugar.lat,
+        lugar.lon,
+        lugar.display
+      );
+
+      document.getElementById("status").innerHTML =
+        '<span style="color:#067647">📍 Ubicación seleccionada correctamente.</span>';
+
+      map.fitBounds(
+        L.latLngBounds([origin,destination]),
+        {padding:[40,40]}
+      );
+    };
+
+    box.appendChild(item);
+  });
+}
+
+
+/* =====================================================
+   BUSCAR DIRECCIÓN
+   ===================================================== */
+
+document.getElementById("buscarDireccion").onclick =
+async function(){
+
+  const calle =
+    document.getElementById("calle").value.trim();
+
+  const esquina =
+    document.getElementById("esquina").value.trim();
+
+  const status =
+    document.getElementById("status");
+
+  if(!calle || !esquina){
+
+    status.textContent =
+      "Ingresá las dos calles.";
+
+    return;
+  }
+
+  const consulta =
+    calle + " y " + esquina +
+    ", Montevideo, Uruguay";
+
+  this.disabled = true;
+  status.textContent = "Buscando dirección…";
+
+  try{
+
+    const resultados =
+      await geocode(consulta,8);
+
+    if(resultados.length === 1){
+
+      colocarDestino(
+        resultados[0].lat,
+        resultados[0].lon,
+        resultados[0].display
+      );
+
+      document.getElementById("resultados").style.display =
+        "none";
+
+      status.innerHTML =
+        '<span style="color:#067647">📍 Ubicación seleccionada correctamente.</span>';
+
+    }else{
+
+      mostrarResultados(resultados);
+
+      status.textContent =
+        "Elegí la dirección correcta de la lista.";
+    }
+
+  }catch(error){
+
+    status.textContent =
+      error.message;
+
+  }finally{
+
+    this.disabled = false;
+  }
+};
+
+
+/* =====================================================
+   USAR UBICACIÓN ACTUAL
+   ===================================================== */
+
+document.getElementById("usarUbicacion").onclick =
+function(){
+
+  const boton = this;
+  const status = document.getElementById("status");
+
+  if(!window.isSecureContext){
+
+    status.textContent =
+      "La ubicación del teléfono necesita que la página esté abierta con HTTPS.";
+
+    return;
+  }
+
+  if(!navigator.geolocation){
+
+    status.textContent =
+      "Este navegador no permite obtener tu ubicación.";
+
+    return;
+  }
+
+  boton.disabled = true;
+
+  status.textContent =
+    "📱 Buscando tu ubicación actual…";
+
+  navigator.geolocation.getCurrentPosition(
+
+    async function(position){
+
+      const lat =
+        position.coords.latitude;
+
+      const lon =
+        position.coords.longitude;
+
+      colocarDestino(
+        lat,
+        lon,
+        "Mi ubicación actual"
+      );
+
+      map.setView(
+        [lat,lon],
+        17
+      );
+
+      status.textContent =
+        "📍 Ubicación encontrada. Buscando la dirección…";
+
+      try{
+
+        currentDestinationName =
+          await reverseGeocode(lat,lon);
+
+      }catch(error){
+
+        currentDestinationName =
+          "Ubicación actual (" +
+          lat.toFixed(6) + ", " +
+          lon.toFixed(6) + ")";
+      }
+
+      status.innerHTML =
+        '<span style="color:#067647"><b>📍 Ubicación actual seleccionada correctamente.</b></span>';
+
+      mostrarPrecio();
+
+      boton.disabled = false;
+    },
+
+    function(error){
+
+      boton.disabled = false;
+
+      if(error.code === 1){
+
+        status.innerHTML =
+          '<span style="color:#b42318"><b>El teléfono bloqueó la ubicación.</b> Activá el permiso de ubicación para este sitio o tocá el mapa.</span>';
+
+      }else if(error.code === 2){
+
+        status.textContent =
+          "No se pudo obtener la ubicación. Podés tocar el mapa.";
+
+      }else{
+
+        status.textContent =
+          "La búsqueda de ubicación tardó demasiado. Podés tocar el mapa.";
+      }
+    },
+
+    {
+      enableHighAccuracy:true,
+      timeout:20000,
+      maximumAge:0
+    }
+  );
+};
+
+
+/* =====================================================
+   TOCAR DIRECTAMENTE EL MAPA
+   ===================================================== */
+
+map.on("click",async function(e){
+
+  const lat = e.latlng.lat;
+  const lon = e.latlng.lng;
+
+  document.getElementById("status").textContent =
+    "📍 Punto seleccionado. Buscando dirección…";
+
+  colocarDestino(
+    lat,
+    lon,
+    "Ubicación seleccionada"
+  );
+
+  try{
+
+    currentDestinationName =
+      await reverseGeocode(lat,lon);
+
+  }catch(error){
+
+    currentDestinationName =
+      lat.toFixed(6) + "," + lon.toFixed(6);
+  }
+
+  document.getElementById("status").innerHTML =
+    '<span style="color:#067647"><b>📍 Ubicación seleccionada correctamente.</b></span>';
+
+  mostrarPrecio();
+});
+
+
+/* =====================================================
+   URGENTE
+   ===================================================== */
+
+document.getElementById("urgente").onchange =
+function(){
+
+  mostrarPrecio();
+};
+
+
+/* =====================================================
+   ENVIAR PEDIDO A SUPABASE
+   ===================================================== */
+
+document.getElementById("enviarPedido").onclick =
+async function(){
+
+  const cliente =
+    document.getElementById("cliente").value.trim();
+
+  const telefono =
+    document.getElementById("telefono").value.trim();
+
+  const observaciones =
+    document.getElementById("observaciones").value.trim();
+
+  const urgente =
+    document.getElementById("urgente").checked;
+
+  const boton = this;
+
+  const enviando =
+    document.getElementById("enviando");
+
+  const errorBox =
+    document.getElementById("errorEnvio");
+
+  errorBox.style.display = "none";
+  errorBox.textContent = "";
+
+  if(!cliente){
+
+    alert("Ingresá tu nombre.");
+    return;
+  }
+
+  if(!telefono){
+
+    alert("Ingresá tu teléfono.");
+    return;
+  }
+
+  if(!destination){
+
+    alert("Primero seleccioná la ubicación de entrega.");
+    return;
+  }
+
+  const km =
+    haversine(origin,destination);
+
+  const calculo =
+    calcularPrecio(km);
+
+  const total =
+    calculo.precio + (urgente ? 50 : 0);
+
+  boton.disabled = true;
+
+  enviando.textContent =
+    "📤 Enviando pedido…";
+
+  try{
+
+    const pedido = {
+      cliente:cliente,
+      telefono:telefono,
+      direccion:currentDestinationName,
+      latitud:destination[0],
+      longitud:destination[1],
+      distancia_km:Number(km.toFixed(2)),
+      zona:calculo.zona,
+      precio_base:calculo.precio,
+      urgente:urgente,
+      precio_total:total,
+      observaciones:observaciones,
+      estado:"pendiente"
+    };
+
+    /*
+      Enviamos directamente a la API REST de Supabase.
+      No usamos SELECT ni pedimos que Supabase devuelva
+      el registro. Esto respeta la política RLS del cliente.
+    */
+
+    const response =
+      await fetch(SUPABASE_REST,{
+        method:"POST",
+        headers:{
+          "apikey":SUPABASE_KEY,
+          "Authorization":"Bearer " + SUPABASE_KEY,
+          "Content-Type":"application/json",
+          "Prefer":"return=minimal"
+        },
+        body:JSON.stringify(pedido)
+      });
+
+    const texto =
+      await response.text();
+
+    if(!response.ok){
+
+      let detalle = texto;
+
+      try{
+        const json = JSON.parse(texto);
+
+        detalle =
+          json.message ||
+          json.details ||
+          json.hint ||
+          json.error ||
+          texto;
+
+      }catch(e){}
+
+      throw new Error(
+        "Supabase respondió " +
+        response.status +
+        ": " +
+        detalle
+      );
+    }
+
+    enviando.textContent = "";
+
+    document.getElementById("precioFinal").textContent =
+      "$" + total;
+
+    document.getElementById("pedidoEnviado").style.display =
+      "block";
+
+    document.getElementById("enviarPedido").style.display =
+      "none";
+
+    document.getElementById("resumen").style.display =
+      "none";
+
+    window.scrollTo({
+      top:document.body.scrollHeight,
+      behavior:"smooth"
+    });
+
+  }catch(error){
+
+    console.error("ERROR AL ENVIAR:",error);
+
+    enviando.textContent = "";
+
+    errorBox.style.display = "block";
+
+    errorBox.innerHTML =
+      "<b>❌ No se pudo enviar el pedido.</b><br><br>" +
+      escapeHtml(error.message);
+
+    boton.disabled = false;
+  }
+};
+
+
+/* =====================================================
+   INICIAR
+   ===================================================== */
+
+async function iniciar(){
+
+  try{
+
+    const lugares =
+      await geocode(ORIGIN_QUERY,1);
+
+    if(lugares.length){
+
+      origin = [
+        lugares[0].lat,
+        lugares[0].lon
+      ];
+
+    }else{
+
+      origin = FALLBACK;
+    }
+
+  }catch(error){
+
+    origin = FALLBACK;
+  }
+
+  mostrarOrigen();
+
+  map.setView(
+    origin,
+    13
+  );
+
+  setTimeout(function(){
+
+    map.invalidateSize();
+
+  },500);
+}
+
+iniciar();
+
+</script>
+</body>
+</html>
