@@ -14,86 +14,35 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
 *{box-sizing:border-box}
-
 body{
- margin:0;
- background:#f2f4f7;
- color:#101828;
+ margin:0;background:#f2f4f7;color:#101828;
  font-family:Arial,sans-serif
 }
-
 header{
- background:#067647;
- color:white;
- padding:18px;
- text-align:center;
- font-size:21px;
- font-weight:bold
+ background:#067647;color:white;padding:18px;
+ text-align:center;font-size:21px;font-weight:bold
 }
-
-main{
- max-width:700px;
- margin:auto;
- padding:14px
-}
-
+main{max-width:700px;margin:auto;padding:14px}
 .card{
- background:white;
- border-radius:16px;
- padding:16px;
- margin:12px 0;
+ background:white;border-radius:16px;padding:16px;margin:12px 0;
  box-shadow:0 3px 12px #0002
 }
-
 input,select,button{
- width:100%;
- padding:13px;
- margin:6px 0;
- border-radius:10px;
- border:1px solid #ccc;
- font-size:16px
+ width:100%;padding:13px;margin:6px 0;border-radius:10px;
+ border:1px solid #ccc;font-size:16px
 }
-
-button{
- background:#067647;
- color:white;
- border:0;
- font-weight:bold
-}
-
+button{background:#067647;color:white;border:0;font-weight:bold}
 .red{background:#b42318}
 .blue{background:#175cd3}
 .gray{background:#475467}
-
-.new{
- border:3px solid #12b76a
-}
-
-.urgent{
- color:#b42318;
- font-weight:bold
-}
-
-#map{
- width:100%;
- height:220px;
- margin-top:10px;
- border-radius:12px
-}
-
-.hidden{
- display:none
-}
-
-#error{
- color:#b42318;
- font-weight:bold
-}
-
-.small{
- color:#667085;
- font-size:14px
-}
+.notify{background:#175cd3}
+.new{border:3px solid #12b76a}
+.urgent{color:#b42318;font-weight:bold}
+.hidden{display:none}
+#error{color:#b42318;font-weight:bold}
+.small{color:#667085;font-size:14px}
+.success{color:#067647;font-weight:bold}
+.warning{color:#b54708;font-weight:bold}
 </style>
 </head>
 
@@ -107,19 +56,17 @@ button{
 
 <h2>Iniciar sesión</h2>
 
-<input
- id="email"
+<input id="email"
  type="email"
  placeholder="Correo electrónico"
  autocomplete="email">
 
-<input
- id="password"
+<input id="password"
  type="password"
  placeholder="Contraseña"
  autocomplete="current-password">
 
-<button id="loginBtn" onclick="login()">
+<button id="loginBtn">
 Ingresar
 </button>
 
@@ -127,14 +74,21 @@ Ingresar
 
 </div>
 
-
 <div id="app" class="hidden">
 
 <div class="card">
 
-<button class="gray" onclick="logout()">
+<button class="gray" id="logoutBtn">
 Cerrar sesión
 </button>
+
+<button id="notificationBtn" class="notify">
+🔔 Activar notificaciones
+</button>
+
+<p id="notificationStatus" class="small">
+Las notificaciones todavía no están activadas.
+</p>
 
 <p class="small">
 Los pedidos se actualizan automáticamente.
@@ -148,7 +102,7 @@ Los pedidos se actualizan automáticamente.
 
 </main>
 
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
@@ -162,31 +116,40 @@ const SUPABASE_KEY =
 const ADMIN_ID =
 "1542195c-af82-42e6-b011-bb7a9923a88f";
 
-let accessToken="";
+const FUNCTION_URL =
+SUPABASE_URL+"/functions/v1/smooth-worker";
+
+const sb =
+window.supabase.createClient(
+ SUPABASE_URL,
+ SUPABASE_KEY
+);
+
 let refreshTimer=null;
 
 
-function headers(){
-
- return {
-  "apikey":SUPABASE_KEY,
-  "Authorization":"Bearer "+accessToken,
-  "Content-Type":"application/json"
- };
-
-}
-
+/* =========================
+   LOGIN
+========================= */
 
 async function login(){
 
- const email=document.getElementById("email").value.trim();
- const password=document.getElementById("password").value;
- const error=document.getElementById("error");
- const btn=document.getElementById("loginBtn");
+ const email=
+  document.getElementById("email").value.trim();
+
+ const password=
+  document.getElementById("password").value;
+
+ const error=
+  document.getElementById("error");
+
+ const btn=
+  document.getElementById("loginBtn");
 
  if(!email || !password){
 
-  error.textContent="Ingresá el correo y la contraseña.";
+  error.textContent=
+   "Ingresá el correo y la contraseña.";
 
   return;
  }
@@ -197,29 +160,16 @@ async function login(){
 
  try{
 
-  const response=await fetch(
-   SUPABASE_URL+
-   "/auth/v1/token?grant_type=password",
-   {
-    method:"POST",
-    headers:{
-     "apikey":SUPABASE_KEY,
-     "Content-Type":"application/json"
-    },
-    body:JSON.stringify({
-     email:email,
-     password:password
-    })
-   }
-  );
+  const {data,error:loginError}=
+   await sb.auth.signInWithPassword({
+    email,
+    password
+   });
 
-  const data=await response.json();
-
-  if(!response.ok){
+  if(loginError){
 
    error.textContent=
-    data.error_description ||
-    data.msg ||
+    loginError.message ||
     "Correo o contraseña incorrectos.";
 
    btn.disabled=false;
@@ -228,7 +178,10 @@ async function login(){
    return;
   }
 
-  if(!data.user || data.user.id!==ADMIN_ID){
+  if(!data.user ||
+     data.user.id!==ADMIN_ID){
+
+   await sb.auth.signOut();
 
    error.textContent=
     "Este usuario no tiene permiso de administrador.";
@@ -239,58 +192,107 @@ async function login(){
    return;
   }
 
-  accessToken=data.access_token;
+  await mostrarAplicacion();
 
-  document.getElementById("loginBox")
-   .classList.add("hidden");
-
-  document.getElementById("app")
-   .classList.remove("hidden");
-
-  await loadOrders();
-
-  if(refreshTimer)
-   clearInterval(refreshTimer);
-
-  refreshTimer=setInterval(loadOrders,15000);
+  btn.disabled=false;
+  btn.textContent="Ingresar";
 
  }catch(e){
+
+  console.error(e);
 
   error.textContent=
    "No se pudo conectar con el servidor.";
 
   btn.disabled=false;
   btn.textContent="Ingresar";
-
  }
 
 }
 
 
+/* =========================
+   INICIO AUTOMÁTICO
+========================= */
+
+async function iniciar(){
+
+ const {
+  data:{session}
+ }=await sb.auth.getSession();
+
+ if(!session){
+
+  document.getElementById("loginBox")
+   .classList.remove("hidden");
+
+  document.getElementById("app")
+   .classList.add("hidden");
+
+  return;
+ }
+
+ if(!session.user ||
+    session.user.id!==ADMIN_ID){
+
+  await sb.auth.signOut();
+  return;
+ }
+
+ await mostrarAplicacion();
+
+}
+
+
+/* =========================
+   MOSTRAR APP
+========================= */
+
+async function mostrarAplicacion(){
+
+ document.getElementById("loginBox")
+  .classList.add("hidden");
+
+ document.getElementById("app")
+  .classList.remove("hidden");
+
+ await loadOrders();
+
+ if(refreshTimer)
+  clearInterval(refreshTimer);
+
+ refreshTimer=
+  setInterval(loadOrders,15000);
+
+ revisarNotificaciones();
+
+}
+
+
+/* =========================
+   PEDIDOS
+========================= */
+
 async function loadOrders(){
 
  try{
 
-  const response=await fetch(
-   SUPABASE_URL+
-   "/rest/v1/pedidos?select=*&order=created_at.desc",
-   {
-    headers:{
-     "apikey":SUPABASE_KEY,
-     "Authorization":"Bearer "+accessToken
-    }
-   }
-  );
+  const {
+   data:orders,
+   error
+  }=await sb
+   .from("pedidos")
+   .select("*")
+   .order("created_at",{ascending:false});
 
-  if(!response.ok){
+  if(error){
 
    document.getElementById("orders").innerHTML=
     "<div class='card'>No se pudieron cargar los pedidos.</div>";
 
+   console.error(error);
    return;
   }
-
-  let orders=await response.json();
 
   const priority={
    "pendiente":0,
@@ -313,7 +315,8 @@ async function loadOrders(){
 
   });
 
-  const container=document.getElementById("orders");
+  const container=
+   document.getElementById("orders");
 
   container.innerHTML="";
 
@@ -327,7 +330,8 @@ async function loadOrders(){
 
   orders.forEach(function(order){
 
-   const card=document.createElement("div");
+   const card=
+    document.createElement("div");
 
    card.className=
     "card "+
@@ -407,7 +411,9 @@ onclick="deleteOrder(${order.id})">
 🗑️ Eliminar pedido
 </button>
 
-<div id="map-${order.id}" style="height:220px;margin-top:10px;border-radius:12px"></div>
+<div id="map-${order.id}"
+style="height:220px;margin-top:10px;border-radius:12px">
+</div>
 
 `;
 
@@ -448,24 +454,21 @@ onclick="deleteOrder(${order.id})">
 }
 
 
+/* =========================
+   CAMBIAR ESTADO
+========================= */
+
 async function changeStatus(id,status){
 
- const response=await fetch(
-  SUPABASE_URL+
-  "/rest/v1/pedidos?id=eq."+id,
-  {
-   method:"PATCH",
-   headers:headers(),
-   body:JSON.stringify({
-    estado:status
-   })
-  }
- );
+ const {error}=
+  await sb
+   .from("pedidos")
+   .update({estado:status})
+   .eq("id",id);
 
- if(!response.ok){
+ if(error){
 
   alert("No se pudo cambiar el estado.");
-
   return;
  }
 
@@ -473,28 +476,26 @@ async function changeStatus(id,status){
 
 }
 
+
+/* =========================
+   ELIMINAR
+========================= */
 
 async function deleteOrder(id){
 
- const confirmDelete=
-  confirm("¿Seguro que querés eliminar este pedido?");
+ if(!confirm(
+  "¿Seguro que querés eliminar este pedido?"
+ )) return;
 
- if(!confirmDelete)
-  return;
+ const {error}=
+  await sb
+   .from("pedidos")
+   .delete()
+   .eq("id",id);
 
- const response=await fetch(
-  SUPABASE_URL+
-  "/rest/v1/pedidos?id=eq."+id,
-  {
-   method:"DELETE",
-   headers:headers()
-  }
- );
-
- if(!response.ok){
+ if(error){
 
   alert("No se pudo eliminar el pedido.");
-
   return;
  }
 
@@ -502,13 +503,16 @@ async function deleteOrder(id){
 
 }
 
+
+/* =========================
+   GOOGLE MAPS
+========================= */
 
 function openMaps(lat,lng){
 
  if(!lat || !lng){
 
   alert("Este pedido no tiene ubicación.");
-
   return;
  }
 
@@ -521,6 +525,10 @@ function openMaps(lat,lng){
 }
 
 
+/* =========================
+   LLAMAR
+========================= */
+
 function callCustomer(phone){
 
  window.location.href="tel:"+phone;
@@ -528,23 +536,233 @@ function callCustomer(phone){
 }
 
 
-function logout(){
+/* =========================
+   CERRAR SESIÓN
+========================= */
 
- accessToken="";
+async function logout(){
 
  if(refreshTimer)
   clearInterval(refreshTimer);
 
- document.getElementById("app")
-  .classList.add("hidden");
+ await sb.auth.signOut();
 
- document.getElementById("loginBox")
-  .classList.remove("hidden");
-
- document.getElementById("password").value="";
+ location.reload();
 
 }
 
+
+/* =========================
+   NOTIFICACIONES
+========================= */
+
+function revisarNotificaciones(){
+
+ const btn=
+  document.getElementById("notificationBtn");
+
+ const status=
+  document.getElementById("notificationStatus");
+
+ if(!("Notification" in window)){
+
+  btn.disabled=true;
+
+  status.textContent=
+   "Este navegador no permite notificaciones.";
+
+  return;
+ }
+
+ if(Notification.permission==="granted"){
+
+  btn.textContent=
+   "🔔 Notificaciones activadas";
+
+  status.textContent=
+   "Podés recibir avisos de nuevos pedidos.";
+
+ }
+
+}
+
+
+/* =========================
+   ACTIVAR NOTIFICACIONES
+========================= */
+
+async function activarNotificaciones(){
+
+ const btn=
+  document.getElementById("notificationBtn");
+
+ const status=
+  document.getElementById("notificationStatus");
+
+ try{
+
+  if(!("Notification" in window)){
+
+   throw new Error(
+    "Este navegador no permite notificaciones."
+   );
+
+  }
+
+  const permission=
+   await Notification.requestPermission();
+
+  if(permission!=="granted"){
+
+   throw new Error(
+    "Las notificaciones fueron bloqueadas."
+   );
+
+  }
+
+  const registration=
+   await navigator.serviceWorker.ready;
+
+  const {
+   data:{session}
+  }=await sb.auth.getSession();
+
+  if(!session){
+
+   throw new Error(
+    "La sesión no está disponible."
+   );
+
+  }
+
+  const response=
+   await fetch(
+    FUNCTION_URL,
+    {
+     method:"GET",
+     headers:{
+      "apikey":SUPABASE_KEY,
+      "Authorization":
+       "Bearer "+session.access_token
+     }
+    }
+   );
+
+  if(!response.ok){
+
+   throw new Error(
+    "No se pudo obtener la configuración de notificaciones."
+   );
+
+  }
+
+  const config=
+   await response.json();
+
+  if(!config.vapidPublicKey){
+
+   throw new Error(
+    "No se recibió la clave pública VAPID."
+   );
+
+  }
+
+  const subscription=
+   await registration.pushManager.subscribe({
+
+    userVisibleOnly:true,
+
+    applicationServerKey:
+     urlBase64ToUint8Array(
+      config.vapidPublicKey
+     )
+
+   });
+
+  const json=
+   subscription.toJSON();
+
+  if(!json.keys){
+
+   throw new Error(
+    "El navegador no devolvió las claves de la suscripción."
+   );
+
+  }
+
+  const {error}=
+   await sb
+    .from("push_subscriptions")
+    .upsert(
+     {
+      user_id:session.user.id,
+      endpoint:json.endpoint,
+      p256dh:json.keys.p256dh,
+      auth:json.keys.auth
+     },
+     {
+      onConflict:"endpoint"
+     }
+    );
+
+  if(error)
+   throw error;
+
+  btn.textContent=
+   "🔔 Notificaciones activadas";
+
+  status.textContent=
+   "✅ Este teléfono recibirá avisos de nuevos pedidos.";
+
+  status.className=
+   "small success";
+
+ }catch(e){
+
+  console.error(e);
+
+  status.textContent=
+   "❌ "+e.message;
+
+  status.className=
+   "small warning";
+
+ }
+
+}
+
+
+/* =========================
+   VAPID
+========================= */
+
+function urlBase64ToUint8Array(base64String){
+
+ const padding=
+  "=".repeat(
+   (4-base64String.length%4)%4
+  );
+
+ const base64=
+  (base64String+padding)
+   .replace(/-/g,"+")
+   .replace(/_/g,"/");
+
+ const rawData=
+  window.atob(base64);
+
+ return Uint8Array.from(
+  [...rawData].map(
+   char=>char.charCodeAt(0)
+  )
+ );
+
+}
+
+
+/* =========================
+   SEGURIDAD
+========================= */
 
 function safe(value){
 
@@ -557,7 +775,6 @@ function safe(value){
 
 }
 
-
 function safeAttr(value){
 
  return String(value ?? "")
@@ -566,13 +783,45 @@ function safeAttr(value){
 }
 
 
+/* =========================
+   BOTONES
+========================= */
+
+document.getElementById("loginBtn")
+ .onclick=login;
+
+document.getElementById("logoutBtn")
+ .onclick=logout;
+
+document.getElementById("notificationBtn")
+ .onclick=activarNotificaciones;
+
+
+/* =========================
+   SERVICE WORKER
+========================= */
+
 if("serviceWorker" in navigator){
 
  navigator.serviceWorker.register(
-  "./sw.js?v=4"
- );
+  "./sw.js?v=5"
+ ).catch(function(error){
+
+  console.log(
+   "Error Service Worker:",
+   error
+  );
+
+ });
 
 }
+
+
+/* =========================
+   ARRANCAR
+========================= */
+
+iniciar();
 
 </script>
 
