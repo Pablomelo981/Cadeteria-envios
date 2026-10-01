@@ -77,4 +77,433 @@ button:disabled{opacity:.55}
  margin-top:10px
 }
 .error{
- background:#fff
+ background:#fff1f0;
+ border:1px solid #f4b4af;
+ color:var(--red);
+ padding:12px;
+ border-radius:12px;
+ margin-top:10px;
+ word-break:break-word
+}
+.ok{
+ background:#ecfdf3;
+ border:1px solid #abefc6;
+ color:var(--green);
+ padding:12px;
+ border-radius:12px;
+ margin-top:10px
+}
+.hidden{display:none!important}
+label{
+ display:block;
+ font-weight:700;
+ margin:10px 0 6px
+}
+input{
+ width:100%;
+ padding:13px;
+ border:1px solid #d0d5dd;
+ border-radius:12px
+}
+.order{border:2px solid #eaecf0}
+.order.urgent{border-color:#f79009}
+.order.new{
+ border-color:#12b76a;
+ box-shadow:0 5px 20px #12b76a22
+}
+.new-banner{
+ background:#ecfdf3;
+ color:#067647;
+ border:1px solid #abefc6;
+ border-radius:12px;
+ padding:10px 12px;
+ font-weight:850;
+ margin-bottom:10px
+}
+.top{
+ display:flex;
+ justify-content:space-between;
+ gap:10px;
+ align-items:center
+}
+.top h2{margin:0}
+.meta{
+ font-size:13px;
+ color:var(--muted);
+ margin-top:4px
+}
+.info{margin:8px 0}
+.badge{
+ display:inline-block;
+ padding:5px 9px;
+ border-radius:999px;
+ font-size:12px;
+ font-weight:800;
+ background:#eef4ff;
+ color:#175cd3
+}
+.badge.urgent{
+ background:#fff0e6;
+ color:var(--orange)
+}
+.money{
+ font-size:29px;
+ font-weight:850
+}
+.map{
+ height:240px;
+ border-radius:13px;
+ margin-top:12px
+}
+.empty{
+ text-align:center;
+ color:var(--muted);
+ padding:28px
+}
+.actions{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:8px;
+ margin-top:10px
+}
+.actions button{width:100%}
+.status-select{
+ width:100%;
+ padding:12px;
+ border:1px solid #d0d5dd;
+ border-radius:12px;
+ margin-top:10px;
+ background:white;
+ font:inherit
+}
+.delete-btn{
+ background:#b42318;
+ color:white;
+ width:100%;
+ margin-top:10px
+}
+@media(max-width:520px){
+ .actions{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+ <div class="header-row">
+  <div>
+   <h1>🚚 Cadetería</h1>
+   <small>Panel de pedidos</small>
+  </div>
+  <button id="logout" class="logout">Salir</button>
+ </div>
+</header>
+
+<div class="wrap">
+
+<section id="loginCard" class="card login">
+ <h2>🔐 Ingresar</h2>
+ <p style="color:var(--muted)">
+  Esta aplicación es solamente para la cadetería.
+ </p>
+
+ <label>Correo</label>
+ <input id="email" type="email" autocomplete="username" placeholder="Correo del administrador">
+
+ <label>Contraseña</label>
+ <input id="password" type="password" autocomplete="current-password" placeholder="Contraseña">
+
+ <button id="login">Ingresar</button>
+
+ <div id="loginError" class="error hidden"></div>
+</section>
+
+<section id="app" class="hidden">
+
+ <div class="card">
+  <div class="top">
+   <div>
+    <h2>📦 Pedidos</h2>
+    <div id="count" class="meta">Cargando…</div>
+   </div>
+
+   <button id="refresh" class="refresh">🔄</button>
+  </div>
+
+  <div id="message"></div>
+ </div>
+
+ <div id="orders"></div>
+
+</section>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+
+const SUPABASE_URL =
+"https://umqbrzgbsfzeggnyhfcu.supabase.co";
+
+const SUPABASE_KEY =
+"sb_publishable_WIcZQ2owPoPYs5edb51j-g_mLvI0VTX";
+
+const ADMIN_UUID =
+"1542195c-af82-42e6-b011-bb7a9923a88f";
+
+const sb =
+window.supabase.createClient(
+ SUPABASE_URL,
+ SUPABASE_KEY
+);
+
+const $ = id => document.getElementById(id);
+
+function esc(v){
+ return String(v ?? "")
+  .replace(/&/g,"&amp;")
+  .replace(/</g,"&lt;")
+  .replace(/>/g,"&gt;")
+  .replace(/"/g,"&quot;")
+  .replace(/'/g,"&#039;");
+}
+
+function money(v){
+ return "$"+Number(v||0).toFixed(0);
+}
+
+function date(v){
+ return v
+  ? new Date(v).toLocaleString(
+      "es-UY",
+      {dateStyle:"short",timeStyle:"short"}
+    )
+  : "";
+}
+
+async function currentUser(){
+ const {data:{user}} =
+  await sb.auth.getUser();
+
+ return user;
+}
+
+async function login(){
+
+ $("loginError").classList.add("hidden");
+
+ const email =
+  $("email").value.trim();
+
+ const password =
+  $("password").value;
+
+ if(!email || !password){
+  $("loginError").textContent =
+   "Completá correo y contraseña.";
+
+  $("loginError").classList.remove("hidden");
+  return;
+ }
+
+ $("login").disabled = true;
+
+ const {error} =
+  await sb.auth.signInWithPassword({
+   email,
+   password
+  });
+
+ $("login").disabled = false;
+
+ if(error){
+  $("loginError").textContent =
+   error.message;
+
+  $("loginError").classList.remove("hidden");
+  return;
+ }
+
+ await start();
+}
+
+async function start(){
+
+ const user =
+  await currentUser();
+
+ if(!user){
+
+  $("loginCard").classList.remove("hidden");
+  $("app").classList.add("hidden");
+  $("logout").classList.add("hidden");
+
+  return;
+ }
+
+ if(user.id !== ADMIN_UUID){
+
+  await sb.auth.signOut();
+
+  $("loginError").textContent =
+   "Este usuario no tiene acceso al panel de la cadetería.";
+
+  $("loginError").classList.remove("hidden");
+
+  return;
+ }
+
+ $("loginCard").classList.add("hidden");
+ $("app").classList.remove("hidden");
+ $("logout").classList.remove("hidden");
+
+ await loadOrders();
+}
+
+async function loadOrders(){
+
+ $("count").textContent =
+  "Actualizando…";
+
+ $("orders").innerHTML = "";
+
+ const {data,error} =
+  await sb
+   .from("pedidos")
+   .select("*")
+   .order("created_at",{ascending:false});
+
+ if(error){
+
+  $("count").textContent = "";
+
+  $("message").innerHTML =
+   '<div class="error"><b>No se pudieron cargar los pedidos.</b><br>'+
+   esc(error.message)+
+   '</div>';
+
+  return;
+ }
+
+ $("message").innerHTML = "";
+
+ $("count").textContent =
+  data.length+" pedido(s)";
+
+ if(!data.length){
+
+  $("orders").innerHTML =
+   '<div class="card empty">📭 Todavía no hay pedidos.</div>';
+
+  return;
+ }
+
+ const rank = {
+  pendiente:0,
+  aceptado:1,
+  "en camino":2,
+  entregado:3,
+  cancelado:4
+ };
+
+ data.sort((a,b)=>{
+
+  const ra =
+   rank[String(a.estado||"pendiente")] ?? 0;
+
+  const rb =
+   rank[String(b.estado||"pendiente")] ?? 0;
+
+  if(ra !== rb)
+   return ra-rb;
+
+  return new Date(b.created_at)-new Date(a.created_at);
+ });
+
+ data.forEach(renderOrder);
+}
+
+function renderOrder(o){
+
+ const div =
+  document.createElement("div");
+
+ const estado =
+  String(o.estado||"pendiente");
+
+ const esNuevo =
+  estado === "pendiente";
+
+ div.className =
+  "card order"+
+  (o.urgente ? " urgent":"")+
+  (esNuevo ? " new":"");
+
+ const lat = Number(o.latitud);
+ const lon = Number(o.longitud);
+
+ div.innerHTML = `
+
+  ${esNuevo ? `
+   <div class="new-banner">
+    🆕 NUEVO PEDIDO
+   </div>
+  ` : ""}
+
+  <div class="top">
+
+   <div>
+    <h2>📦 Pedido #${esc(o.id)}</h2>
+    <div class="meta">
+     ${esc(date(o.created_at))}
+    </div>
+   </div>
+
+   ${
+    o.urgente
+    ? '<span class="badge urgent">🚨 URGENTE</span>'
+    : '<span class="badge">NORMAL</span>'
+   }
+
+  </div>
+
+  <div class="info">
+   <b>👤 Cliente:</b>
+   ${esc(o.cliente)}
+  </div>
+
+  <div class="info">
+   <b>📞 Teléfono:</b>
+   ${esc(o.telefono)}
+  </div>
+
+  <div class="info">
+   <b>📍 Entrega:</b><br>
+   ${esc(o.direccion)}
+  </div>
+
+  <div class="info">
+   <b>📏 Distancia:</b>
+   ${esc(o.distancia_km)} km
+  </div>
+
+  <div class="money">
+   ${money(o.precio_total)}
+  </div>
+
+  <div class="info">
+   <b>Estado:</b>
+
+   <select
+    class="status-select"
+    data-id="${esc(o.id)}">
+
+    ${
+     [
+      "pendiente",
+      "aceptado",
+      "en camino",
+      "entregado
